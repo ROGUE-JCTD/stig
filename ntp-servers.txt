@@ -1,4 +1,0 @@
-# Approved Public Time Servers from USNO NTP server listing
-server time.nist.gov
-server ntp.colby.edu
-server tick.usno.navy.mil
