@@ -1,0 +1,21 @@
+# Minimum four servers required.  The first list is from the USNO NTP
+# server listing.  The second is from the open.pool.org project.
+#
+# None of these meet CATII SV-26307r1_rule for the autokey requirement.  
+# The public / private keys need to be obtained for use with approved servers 
+# and added to the system.  Example syntax as follows:
+#
+# server ntp2.usno.navy.mil autokey
+#
+# Add approved servers with keys to the system to this list prior to running 
+# the script. NTP will be configured with the servers in this list.
+
+server ntp2.usno.navy.mil
+server ntp-s1.cise.ufl.edu
+server ntp.colby.edu
+server tick.usno.navy.mil
+
+server 0.north-america.pool.ntp.org
+server 1.north-america.pool.ntp.org
+server 2.north-america.pool.ntp.org
+server 3.north-america.pool.ntp.org
