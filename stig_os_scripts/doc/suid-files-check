@@ -1,0 +1,16 @@
+#!/bin/sh
+
+umask 027
+
+#set the old list and the new list
+cat /var/log/new-suid-file-list > /var/log/old-suid-file-list
+find / -perm -4000 2>/dev/null > /var/log/new-suid-file-list
+
+#store the diff
+diffdate=$( date )
+file_difference=$( diff /var/log/old-suid-file-list /var/log/new-suid-file-list )
+
+#if the lists are different, append the diff to the suid diffs file
+if [ $? -eq 1 ];then
+        echo "${diffdate}  ${file_difference}" >> /var/log/suid-file-diffs
+fi

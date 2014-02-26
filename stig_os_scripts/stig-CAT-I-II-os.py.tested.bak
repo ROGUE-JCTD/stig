@@ -3,8 +3,8 @@
 # 
 # JAM
 # LMN Solutions
-# Version 0.5
-# Feb 2014
+# Version 0.1
+# Dec 2013
 #########################################################################################################################
 # 
 # This script is designed and tested for Ubuntu 12.03 and 12.04 LTS
@@ -50,13 +50,9 @@ out_file.write("scrutiny is required on the part of the administrator. Also, the
 out_file.write("addresses CATI and CATII security issues. CATIII and CATIV will have to be addressed separately.\n")
 out_file.write("\n\nCATI Findings:\n")
 
-#########################################################################################################################
 #
 # Get the system administrator user naem for use in some of the scripts
 #
-#########################################################################################################################
-
-print 'Get system administrator account name to configure administrator funstions identified by the STIG.\n'
 
 admin1=1
 admin2=2
@@ -66,74 +62,6 @@ while admin1 != admin2:
     admin2 = raw_input("Reenter system administrator account name:")
     if admin1 != admin2:
         print "Entered system administrator account name does not match."
-
-
-#########################################################################################################################
-#
-# Install any of the necessary packages for the system lockdown.  Install upfront since CAT changes are not always in
-# order. Any STIG required configuration will also be done as part of the ins
-#
-#########################################################################################################################
-
-print 'Installing STIG required packages.\n'
-
-#
-# SV-27270r1_rule. Auditing must be implemented.
-#
-# This script is upfront to allow for changes to the /etc/pam.d/common-auth changes that will be implemented for STIGs
-# later in the script.
-#
-
-# install auditd
-
-os.system('apt-get install auditd')
-
-# rotate the logs daily
-
-os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
-
-#
-# Rule Id: SV-12442-1r6
-# Rule Title: A file integrity baseline must be created.
-#
-# The following installs tripwire and initiates the baseline if tripwire install not found
-
-trip_check=os.system('which tripwire')
-if trip_check != 0:
-    os.system('apt-get install tripwire && tripwire --init')
-
-#
-# Sendmail  and postfix - not spelled out in the STIGs per say but is necessary to send administrator email in a number of 
-# the STIG changes.
-#
-
-os.system('apt-get install sendmail')
-os.system('apt-get install postfix')
-
-#########################################################################################################################
-#
-# Purge STIG identified packages.  Purge up front so that not being done off and on during the installation.
-#
-#########################################################################################################################
-
-print 'Purging STIG required packages.\n'
-
-#
-# SV-26666r1_rule - The portmap or rpcbind service must not be installed unless needed.
-#
-# Removes rpcbind and portmap
-#
-
-os.system('apt-get purge rpcbind')
-
-#
-# SV-12550r5_rule - Network analysis tools must not be installed
-#
-# Removes tcpdump and mitigates nc.openbsd
-#
-
-os.system('apt-get purge tcpdump')
-os.system('chmod 0000 /bin/nc.openbsd')
 
 #########################################################################################################################
 #
@@ -357,6 +285,21 @@ else:
 #########################################################################################################################
 
 #
+# SV-27270r1_rule. Auditing must be implemented.
+#
+# This script is upfront to allow for changes to the /etc/pam.d/common-auth changes that will be implemented for STIGs
+# later in the script.
+#
+
+# install auditd
+
+os.system('apt-get install auditd')
+
+# rotate the logs daily
+
+os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
+
+#
 # Rule Id: SV-29956r1 - The /etc/gshadow file must be group-owned by root
 # Change /etc/gshadow to root if not root.  OOB is shadow.
 #
@@ -520,6 +463,16 @@ with open("/etc/apt/apt.conf.d/10periodic", "r+") as periodic_file:
     periodic_file.write("APT::Periodic::Unattended-Upgrade \"1\";\n")
 periodic_file.close()
 print 'Vendor upgrades set to automatic.\n'
+
+#
+# Rule Id: SV-12442-1r6
+# Rule Title: A file integrity baseline must be created.
+#
+# The following installs tripwire and initiates the baseline if tripwire install not found
+
+trip_check=os.system('which tripwire')
+if trip_check != 0:
+    os.system('apt-get install tripwire && tripwire --init')
 
 #
 # Rule Id: SV-26307r1_rule
@@ -886,6 +839,22 @@ cron_log_file.close()
 os.system('touch /var/log/cron.log')
 os.system('find /var/log/cron.log -perm /7177 -exec chmod u-xs,g-rwxs,o-rwxt {} \;')
 
+
+#
+# Other fixes
+#
+# The following cleans up any other identified security issues not identified with the STIGs.  The STIGs used to
+# conduct the checks are based on RedHat.  There are some Ubuntu unique issues that may not be addressed by the RedHat STIG.
+# Those findings are fixed here.
+#
+
+# The following removes the Ubuntu package "popularity contest".  This is a package that is installed by default with
+# Ubuntu and it sends a list of packages used by a system daily to a server. The default installation is set to "no"
+# in the /etc/popularity-contest.config, so the package does not run, but the package has the potential to send information
+# about a server, such as what is running, security packages, etc, so it is removed.
+
+os.system('apt-get --purge remove popularity-contest')
+
 #
 # SV-27379r1_rule - Access to the "at" utility must be controlled via the at.allow and/or at.deny file(s).
 #
@@ -911,273 +880,6 @@ os.system('chown root:root /var/spool/cron/atjobs')
 
 os.system('chown root:root /etc/at.deny')
 
-#
-# SV-29290r1_rule - The system must not apply reversed source routing to TCP responses.
-# SV-26629r1_rule - The system must ignore IPv4 ICMP redirect messages.
-# SV-29795r1_rule - The system must not forward IPv4 source-routed packets.
-#
-# Changes the settings in the sysctl.conf
-
-with open("/etc/sysctl.conf", "a") as sysctl_file:
-    sysctl_file.write("\n")
-    sysctl_file.write("#\n")
-    sysctl_file.write("# Disable STIG IP source routing\n\n")
-    sysctl_file.write("net.ipv4.conf.lo.accept_source_route = 0\n")
-    sysctl_file.write("net.ipv4.conf.eth0.accept_source_route = 0\n")
-    sysctl_file.write("net.ipv4.conf.all.accept_source_route = 0\n")
-    sysctl_file.write("net.ipv4.conf.default.accept_source_route = 0\n")
-    sysctl_file.write("net.ipv4.conf.all.accept_redirects = 0\n")
-    sysctl_file.write("net.ipv4.conf.all.send_redirects = 0\n")
-sysctl_file.close()
-
-#
-# SV-12507r6_rule - The SMTP service HELP command must not be enabled
-#
-# This will zero out the help file thus providing no information.
-#
-
-with open("/etc/mail/helpfile", "r+") as mailhelp_file:
-    lines = mailhelp_file.readlines()
-    mailhelp_file.seek(0)
-    mailhelp_file.truncate()
-    mailhelp_file.write("\n")
-mailhelp_file.close()
-
-#
-# SV-28408r1_rule - The ftpusers file must contain account names not allowed to use FTP.
-# SV-28405r1_rule - The ftpusers file must exist
-# This will zero out the help file thus providing no information.
-#
-
-os.system('touch /etc/ftpusers')
-os.system('chmod 0640 /etc/ftpusers')
-os.system('echo "#" > /etc/ftpusers')
-
-#
-# SV-26740r1_rule - The /etc/syslog.conf (rsyslog.conf for Ubuntu) file must have mode 0640 or less permissive.
-#
-
-os.system('chmod 0640 /etc/rsyslog.conf')
-
-#
-# SV-26749r1_rule - The SSH client must be configured to only use the SSHv2 protocol.
-# SV-28763r1_rule - The SSH client must use a FIPS 140-2 validated cryptographic module.
-# SV-26754r1_rule - The SSH client must be configured to only use FIPS 140-2 approved ciphers.
-# SV-26755r1_rule - The SSH client must be configured to not use CBC-based ciphers.
-# SV-26756r1_rule - The SSH client must be configured to only use MACs that employ FIPS 140-2 approved cryptographic hash algorithms.
-#
-with open("/etc/ssh/ssh_config", "r+") as ssh_config_file:
-    lines = ssh_config_file.readlines()
-    ssh_config_file.seek(0)
-    ssh_config_file.truncate()
-    for line in lines:
-        if "Protocol 2,1" in line:
-            ssh_config_file.write(line)
-            ssh_config_file.write("Protocol 2\n")
-        elif "Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc" in line:
-            ssh_config_file.write(line)
-            ssh_config_file.write("Ciphers aes128-ctr,aes192-ctr,aes256-ctr\n")
-        elif "MACs hmac-md5,hmac-sha1,umac-64@openssh.com,hmac-ripemd160" in line:
-            ssh_config_file.write(line)
-            ssh_config_file.write("MACs hmac-sha1\n")
-        elif "Tunnel no" in line:
-            ssh_config_file.write(line)
-            ssh_config_file.write("Tunnel no\n")
-        else:
-            ssh_config_file.write(line)
-ssh_config_file.close()
-
-#
-# SV-28762r1_rule - The SSH daemon must use a FIPS 140-2 validated cryptographic module.
-# SV-26753r1_rule - The SSH daemon must be configured to only use MACs that employ FIPS 140-2 approved cryptographic hash algorithms.
-# SV-26752r1_rule - The SSH daemon must be configured to not use CBC ciphers.
-# SV-26751r1_rule - The SSH daemon must be configured to only use FIPS 140-2 approved ciphers.
-#
-
-with open("/etc/ssh/sshd_config", "r+") as sshd_config_file:
-    lines = sshd_config_file.readlines()
-    sshd_config_file.seek(0)
-    sshd_config_file.truncate()
-    for line in lines:
-        if "ChallengeResponseAuthentication" in line:
-            ssh_config_file.write(line)
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Ciphers List\n")
-            ssh_config_file.write("Ciphers aes128-ctr,aes192-ctr,aes256-ctr\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# MACs List\n")
-            ssh_config_file.write("MACs hmac-sha1\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Allow group sudo to ssh in\n")
-            ssh_config_file.write("#AllowGroups sudo\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Deny user sh login\n")
-            ssh_config_file.write("#DenyUsers\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Permit Tunnels\n")
-            ssh_config_file.write("PermitTunnel no\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Compression after authentication\n")
-            ssh_config_file.write("Compression delayed\n")
-            ssh_config_file.write("\n")
-        elif "UseDNS" in line:
-            ssh_config_file.write("#UseDNS no\n")
-        else:
-            ssh_config_file.write(line)
-ssh_config_file.close()
-
-#
-# SV-782r7_rule - The system must have a host-based intrusion detection tool installed.
-# SV-12529r3_rule - The system vulnerability assessment tool, host-based intrusion detection 
-# tool, and file integrity tool must notify the SA and the IAO of a security breach or a suspected 
-# security breach. For SNORT snort.debian.conf will be reset to admin.
-#
-
-os.system('apt-get install snort')
-
-with open("/etc/snort/snort.debian.conf", "r+") as snort_conf_file:
-    lines = snort_conf_file.readlines()
-    snort_conf_file.seek(0)
-    for line in lines:
-        if 'DEBIAN_SNORT_STATS_RCPT' in line:
-            snort_conf_file.write("DEBIAN_SNORT_STATS_RCPT=\"%s\"\n" %str(admin1))
-        else:
-            snort_conf_file.write(line)
-snort_conf_file.close()
-
-#
-# SV-28462r1_rule - The system must use and update a DoD-approved virus scan program. Open source AV installed.
-# Sites can reconfigure as appropriate.
-# SV-12529r3_rule - Add rule to scan once a week and email admin account.
-#
-
-os.system('apt-get install clamav-freshclam')
-
-with open("/etc/cron.weekly/clamav", "w+") as clamav_file:
-    clamav_file.write("#!/bin/sh\n")
-    clamav_file.write("\n")
-    clamav_file.write("# scan the whole system, disregarding errors\n")
-    clamav_file.write("clamscan -ri / 2>/dev/null | sendmail %s\n" % str(admin1))
-clamav_file.close()
-
-#
-# Roothunter install and configuration.
-#
-
-os.system('apt-get install rkhunter')
-
-with open("/etc/default/rkhunter", "r+") as rkhunter_file:
-    lines = rkhunter_file.readlines()
-    rkhunter_file.seek(0)
-    for line in lines:
-        if 'CRON_DAILY_RUN' in line:
-            rkhunter_file.write("CRON_DAILY_RUN=\"yes\"\n")
-        elif 'CRON_DB_UPDATE' in line:
-            rkhunter_file.write("CRON_DB_UPDATE=\"yes\"\n")
-        elif 'REPORT_EMAIL' in line:
-            rkhunter_file.write("REPORT_EMAIL=\"%s\"\n" %str(admin1))
-        else:
-            rkhunter_file.write(line)
-rkhunter_file.close()
-
-#
-# Chkrootkit install and configuration.
-#
-
-os.system('apt-get install chkrootkit')
-
-with open("/etc/cron.daily/chkrootkit", "r+") as chkrootkit_file:
-    lines = chkrootkit_file.readlines()
-    chkrootkit_file.seek(0)
-    for line in lines:
-        if 'eval $CHKROOTKIT $RUN_DAILY_OPTS' in line:
-            chkrootkit_file.write("eval $CHKROOTKIT $RUN_DAILY_OPTS | sendmail %s\n" % str(admin1))
-        else:
-            chkrootkit_file.write(line)
-chkrootkit_file.close()
-
-with open("/etc/chkrootkit.conf", "r+") as chkrootkit_conf_file:
-    lines = chkrootkit_conf_file.readlines()
-    chkrootkit_conf_file.seek(0)
-    for line in lines:
-        if 'RUN_DAILY=' in line: 
-            chkrootkit_conf_file.write("RUN_DAILY=\"true\"\n")
-        else:
-            chkrootkit_conf_file.write(line)
-chkrootkit_conf_file.close()
-
-#
-# SV-26856r1_rule - The system package management tool must be used to verify system software periodically.
-# dbsums package installed and configured.
-#
-
-os.system('apt-get install debsums')
-
-with open("/etc/default/debsums", "r+") as debsums_file:
-    lines = debsums_file.readlines()
-    debsums_file.seek(0)
-    for line in lines:
-        if 'CRON_CHECK=' in line: 
-            debsums_file.write("CRON_CHECK=weekly\n")
-        else:
-            debsums_file.write(line)
-debsums_file.close()
-
-
-#
-# iptable fixes
-#
-# SV-26192r1_rule - UDP-Lite disabled 
-# SV-26887r1_rule - AppleTook disabled
-#
-
-
-iptables -A INPUT -p udplite -j DROP
-
-
-with open("/etc/services", "r+") as ipx_file:
-    lines = ipx_file.readlines()
-    ipx_file.seek(0)
-    ipx_file.truncate()
-    for line in lines:
-        if "ipx" in line:
-            line = "# " + line
-            ipx_file.write(line)
-        elif "AppleTalk" in line:
-            line = "# " + line
-            ipx_file.write(line)
-        else:
-            ipx_file.write(line)
-ipx_file.close()
-
-
-
-
-
-#########################################################################################################################
-#
-# Other fixes
-#
-# The following cleans up any other identified security issues not identified with the STIGs.  The STIGs used to
-# conduct the checks are based on RedHat.  There are some Ubuntu unique issues that may not be addressed by the RedHat STIG.
-# Those findings are fixed here.
-#
-#########################################################################################################################
-
-# The following removes the Ubuntu package "popularity contest".  This is a package that is installed by default with
-# Ubuntu and it sends a list of packages used by a system daily to a server. The default installation is set to "no"
-# in the /etc/popularity-contest.config, so the package does not run, but the package has the potential to send information
-# about a server, such as what is running, security packages, etc, so it is removed.
-
-os.system('apt-get --purge remove popularity-contest')
-
-# Remove the games directories
-
-# Remove any unused packages as listed in the output of teh packages that are removed by this script.  If they are no longer 
-# needed, remove them.
-
-
-#########################################################################################################################
 # write the counts and close the report file
 #out_file.write("CATI Total:" + str(CATI_Total_Count) + "\n")
 #out_file.write("Total CATI Fixed:" + str(CATI_Total_Count_fixed) + "\n")
