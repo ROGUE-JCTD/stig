@@ -1,7 +1,0 @@
-shutdown
-halt
-reboot
-oracle
-postgres
-vagrant
-vboxadd

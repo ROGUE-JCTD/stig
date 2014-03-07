@@ -3,8 +3,8 @@
 # 
 # JAM
 # LMN Solutions
-# Version 0.5
-# Feb 2014
+# Version 0.9
+# March 2014
 #########################################################################################################################
 # 
 # This script is designed and tested for Ubuntu 12.03 and 12.04 LTS
@@ -24,31 +24,23 @@ import os
 import os.path
 import subprocess
 import stat
-import pexpect
 import getpass
 
-# Declare variables
-CATI_Total_Count_fixed = 0
-CATI_Total_Count = 0
-CATI_Warning_Count = 0
-CATI_Fail=0
-CATII_Total_Count_fixed = 0
-CATII_Warning_Count = 0
-CATII_Fail=0
-date_time_now=os.popen('date').read()
+# Install python-pexpect since it is required by the script.
 
+# check if installed. If not, install it.
 #
-# Open and create the report file
-#
-#
-out_file = open("/tmp/CAT_STIG_Report.txt" + date_time_now, "w")
-out_file.write(date_time_now + "\n\n\n")
-out_file.write("This report provides a list of the finding from the STIG lockdown script execution.\n")
-out_file.write("The report lists all items that were \"fixed\" as well as additional finding or warnings.\n")
-out_file.write("The STIG lockdown script does not repair all STIG findings.  Some are noted and additional\n")
-out_file.write("scrutiny is required on the part of the administrator. Also, the STIG lockdown script only\n")
-out_file.write("addresses CATI and CATII security issues. CATIII and CATIV will have to be addressed separately.\n")
-out_file.write("\n\nCATI Findings:\n")
+
+pexpect_check=os.system('dpkg --get-selections | grep pexpect')
+
+if pexpect_check != 0:
+    os.system('apt-get install python-pexpect')
+    import pexpect
+else:
+    import pexpect
+
+# Declare variables
+date_time_now=os.popen('date').read()
 
 #########################################################################################################################
 #
@@ -349,7 +341,6 @@ else:
 #
 #########################################################################################################################
 
-
 #########################################################################################################################
 #
 # Start CAT II Checks
@@ -456,9 +447,9 @@ with open("/etc/fstab", "r") as fstab_file:
         pos_1 = line[0]
         if pos_1 == '#': continue
         elif 'ext1' in line:
-            print '/etc/fstab contains an ext1 file system.  CATII failure.\n'
+            print '/etc/fstab contains an active ext1 file system.  CATII failure.\n'
         elif 'ext2' in line:
-            print '/etc/fstab contains an ext2 file system.  CATII failure.\n'
+            print '/etc/fstab contains an active ext2 file system.  CATII failure.\n'
         else: continue
 
 #
@@ -531,8 +522,6 @@ print 'Vendor upgrades set to automatic.\n'
 #
 
 print 'CATII SV-12442-1r6 Failure. NTP not configured to use cryptographic algorithms to verify the authenticity and integrity of the time data.\n'
-#out_file.write("CATII SV-12442-1r6 Failure. NTP not configured to use cryptographic algorithms to verify the authenticity and integrity of the time data.\n")
-CATII_Fail=CATII_Fail+1
 
 #
 # Rule Id: SV-26297r1_rule
@@ -544,14 +533,10 @@ if os.path.exists("/etc/ntp.conf"):
     if ntpconfmod != "0640":
         os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/ntp.conf')
         print '/etc/ntp.conf file mode changed to 0640.\n'
-        #out_file.write("CATII SV-26297r1 /etc/ntp.conf file mode changed to 0640.\n")
-        CATII_Total_Count_fixed = CATII_Total_Count_fixed+1
     else:
         print '/etc/ntp.conf file mod is already 0640.\n'
 else:
     print 'SV-26297r1 CATII Failure /etc/ntp.conf does not exist.\n'
-    #out_file.write("CATII SV-26297r1 CATII Failure /etc/ntp.conf does not exist.\n")
-    CATII_Fail=CATII_Fail+1
 
 #
 #Rule Id: SV-4269-1r4_rule
@@ -566,8 +551,6 @@ games_user_check=os.system('grep ^games /etc/passwd')
 if games_user_check == 0:
     os.system('deluser --remove-home --remove-all-files games')
     print 'User games and group games removed from system.\n'
-    #out_file.write("CATII SV-4269-1r4 User games and group games removed from system.\n")
-    CATII_Total_Count_fixed = CATII_Total_Count_fixed+1
 else:
     print 'User games not found.\n'
 
@@ -584,8 +567,6 @@ news_user_check=os.system('grep ^news /etc/passwd')
 if news_user_check == 0:
     os.system('deluser --remove-home --remove-all-files news')
     print 'User news and group news removed from system.\n'
-    #out_file.write("CATII SV-4269-1r4 User news and group news removed from system.\n")
-    CATII_Total_Count_fixed = CATII_Total_Count_fixed+1
 else:
     print 'User news not found.\n'
 
@@ -602,11 +583,8 @@ lp_user_check=os.system('grep ^news /etc/passwd')
 if lp_user_check == 0:
     os.system('deluser --remove-home --remove-all-files lp')
     print 'User lp and group lp removed from system.\n'
-    #out_file.write("CATII SV-4269-1r4 User lp and group lp removed from system.\n")
-    CATII_Total_Count_fixed = CATII_Total_Count_fixed+1
 else:
     print 'User lp not found.\n'
-
 
 #
 # Rule Id: SV-27090r1_rule - The system must disable accounts after three consecutive 
@@ -682,7 +660,6 @@ with open("/etc/pam.d/common-password", "r+") as comm_pass_file:
         else:
             comm_pass_file.write(line)
 comm_pass_file.close()
-
 
 #
 # Rule Id: SV-27146r1_rule.  The system must prevent the root account from directly logging in except from the system console.  
@@ -840,8 +817,8 @@ os.system('twadmin --create-polfile /etc/tripwire/twpol.txt')
 
 # Add weekly cron jobs to check if there are unauthorized setuid files or unauthorized modification to
 # authorized setuid files
-os.system('cp sgid-files-check /etc/cron.weekly;chmod 700 /etc/cron.weekly/sgid-files-check;chown root:root /etc/cron.weekly/sgid-files-check;')
-os.system('cp suid-files-check /etc/cron.weekly;chmod 700 /etc/cron.weekly/suid-files-check;chown root:root /etc/cron.weekly/suid-files-check;')
+os.system('cp ./doc/sgid-files-check /etc/cron.weekly;chmod 700 /etc/cron.weekly/sgid-files-check;chown root:root /etc/cron.weekly/sgid-files-check;')
+os.system('cp ./doc/suid-files-check /etc/cron.weekly;chmod 700 /etc/cron.weekly/suid-files-check;chown root:root /etc/cron.weekly/suid-files-check;')
 
 #
 # SV-27320r1_rule - Access to the cron utility must be controlled using the cron.allow and/or cron.deny file(s).
@@ -915,6 +892,10 @@ os.system('chown root:root /etc/at.deny')
 # SV-29290r1_rule - The system must not apply reversed source routing to TCP responses.
 # SV-26629r1_rule - The system must ignore IPv4 ICMP redirect messages.
 # SV-29795r1_rule - The system must not forward IPv4 source-routed packets.
+# SV-26216r1_rule - The IPv6 protocol handler must not be bound to the network stack unless needed.
+# SV-26919r1_rule - The IPv6 protocol handler must be prevented from dynamic loading unless needed.
+# SV-26935r1_rule - The system must ignore IPv6 ICMP redirect messages.
+# SV-26228r1_rule - The system must not forward IPv6 source-routed packets.
 #
 # Changes the settings in the sysctl.conf
 
@@ -928,7 +909,22 @@ with open("/etc/sysctl.conf", "a") as sysctl_file:
     sysctl_file.write("net.ipv4.conf.default.accept_source_route = 0\n")
     sysctl_file.write("net.ipv4.conf.all.accept_redirects = 0\n")
     sysctl_file.write("net.ipv4.conf.all.send_redirects = 0\n")
+    sysctl_file.write("\n")
+    sysctl_file.write("#\n")
+    sysctl_file.write("# Disable IPV6\n\n")
+    sysctl_file.write("#\n")
+    sysctl_file.write("\n")
+    sysctl_file.write("net.ipv6.conf.all.disable_ipv6 = 1\n")
+    sysctl_file.write("net.ipv6.conf.default.disable_ipv6 = 1\n")
+    sysctl_file.write("net.ipv6.conf.lo.disable_ipv6 = 1\n")
+    sysctl_file.write("net.ipv6.conf.default.accept_redirects = 0\n")
+    sysctl_file.write("net.ipv6.conf.all.accept_redirects = 0\n")
+    sysctl_file.write("net.ipv6.conf.all.forwarding = 0\n")
+    sysctl_file.write("net.ipv6.conf.default.forwarding = 0\n")
 sysctl_file.close()
+
+os.system('echo "#" >> /etc/modprobe.d/blacklist.conf')
+os.system('echo "blacklist ipv6" >> /etc/modprobe.d/blacklist.conf')
 
 #
 # SV-12507r6_rule - The SMTP service HELP command must not be enabled
@@ -1000,31 +996,31 @@ with open("/etc/ssh/sshd_config", "r+") as sshd_config_file:
     sshd_config_file.truncate()
     for line in lines:
         if "ChallengeResponseAuthentication" in line:
-            ssh_config_file.write(line)
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Ciphers List\n")
-            ssh_config_file.write("Ciphers aes128-ctr,aes192-ctr,aes256-ctr\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# MACs List\n")
-            ssh_config_file.write("MACs hmac-sha1\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Allow group sudo to ssh in\n")
-            ssh_config_file.write("#AllowGroups sudo\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Deny user sh login\n")
-            ssh_config_file.write("#DenyUsers\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Permit Tunnels\n")
-            ssh_config_file.write("PermitTunnel no\n")
-            ssh_config_file.write("\n")
-            ssh_config_file.write("# Compression after authentication\n")
-            ssh_config_file.write("Compression delayed\n")
-            ssh_config_file.write("\n")
+            sshd_config_file.write(line)
+            sshd_config_file.write("\n")
+            sshd_config_file.write("# Ciphers List\n")
+            sshd_config_file.write("Ciphers aes128-ctr,aes192-ctr,aes256-ctr\n")
+            sshd_config_file.write("\n")
+            sshd_config_file.write("# MACs List\n")
+            sshd_config_file.write("MACs hmac-sha1\n")
+            sshd_config_file.write("\n")
+            sshd_config_file.write("# Allow group sudo to ssh in\n")
+            sshd_config_file.write("#AllowGroups sudo\n")
+            sshd_config_file.write("\n")
+            sshd_config_file.write("# Deny user sh login\n")
+            sshd_config_file.write("#DenyUsers\n")
+            sshd_config_file.write("\n")
+            sshd_config_file.write("# Permit Tunnels\n")
+            sshd_config_file.write("PermitTunnel no\n")
+            sshd_config_file.write("\n")
+            sshd_config_file.write("# Compression after authentication\n")
+            sshd_config_file.write("Compression delayed\n")
+            sshd_config_file.write("\n")
         elif "UseDNS" in line:
-            ssh_config_file.write("#UseDNS no\n")
+            sshd_config_file.write("#UseDNS no\n")
         else:
-            ssh_config_file.write(line)
-ssh_config_file.close()
+            sshd_config_file.write(line)
+sshd_config_file.close()
 
 #
 # SV-782r7_rule - The system must have a host-based intrusion detection tool installed.
@@ -1082,6 +1078,9 @@ rkhunter_file.close()
 
 #
 # Chkrootkit install and configuration.
+# SV-12529r3_rule - The system vulnerability assessment tool, host-based intrusion detection tool, 
+# and file integrity tool must notify the SA and the IAO of a security breach or a suspected security breach.
+# SV-26250r1_rule - A root kit check tool must be run on the system at least weekly.
 #
 
 os.system('apt-get install chkrootkit')
@@ -1123,6 +1122,12 @@ with open("/etc/default/debsums", "r+") as debsums_file:
             debsums_file.write(line)
 debsums_file.close()
 
+#
+# SV-29414r1_rule - 
+#
+# uncomment if going to implement the ldd restriction.
+
+os.system('chmod a-x /usr/bin/ldd')
 
 #
 # iptable fixes
@@ -1130,10 +1135,6 @@ debsums_file.close()
 # SV-26192r1_rule - UDP-Lite disabled 
 # SV-26887r1_rule - AppleTook disabled
 #
-
-
-iptables -A INPUT -p udplite -j DROP
-
 
 with open("/etc/services", "r+") as ipx_file:
     lines = ipx_file.readlines()
@@ -1150,9 +1151,24 @@ with open("/etc/services", "r+") as ipx_file:
             ipx_file.write(line)
 ipx_file.close()
 
+#
+# add iptable rules
+# SV-26973r1_rule - The system must employ a local firewall
+# SV-26975r1_rule - The system's local firewall must implement a deny-all, allow-by-exception policy.
+# SV-26192r1_rule - The Lightweight User Datagram Protocol (UDP-Lite) must be disabled unless required.
+#
+# Script added to root home directory
 
+os.system('cp ./doc/iptables.sh /root;chmod 700 /root/iptables.sh')
+os.system('cp ./doc/save-then-clear-iptables.sh /root;chmod 700 /root/save-then-clear-iptables.sh')
 
+#
+# SV-4250r5_rule - The system's boot loader configuration file(s) must have mode 0600 or less permissive.
+#
+# File is 0444.  Setting to 0400.
+#
 
+os.system('chmod 0400 /boot/grub/grub.cfg') 
 
 #########################################################################################################################
 #
@@ -1171,20 +1187,7 @@ ipx_file.close()
 
 os.system('apt-get --purge remove popularity-contest')
 
-# Remove the games directories
+# Remove the games directories. The games account was deleted but games directories exist.
 
-# Remove any unused packages as listed in the output of teh packages that are removed by this script.  If they are no longer 
-# needed, remove them.
+os.system('rm -R /usr/local/games;rm -R /usr/games')
 
-
-#########################################################################################################################
-# write the counts and close the report file
-#out_file.write("CATI Total:" + str(CATI_Total_Count) + "\n")
-#out_file.write("Total CATI Fixed:" + str(CATI_Total_Count_fixed) + "\n")
-#out_file.write("CATI Total:" + CATI_Total_Count + "\n")
-#out_file.write("Total CATI Fixed:" + CATI_Warning_Count + "\n")
-#out_file.write("Total CATI Fixed:" + CATII_Total_Count_fixed + "\n")
-#out_file.write("Total CATI Fixed:" + CATII_Warning_Count + "\n")
-#
-# Close the report file
-out_file.close()
