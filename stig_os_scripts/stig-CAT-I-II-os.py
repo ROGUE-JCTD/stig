@@ -39,12 +39,9 @@ if pexpect_check != 0:
 else:
     import pexpect
 
-# Declare variables
-date_time_now=os.popen('date').read()
-
 #########################################################################################################################
 #
-# Get the system administrator user naem for use in some of the scripts
+# Get the system administrator user name for use in some of the scripts
 #
 #########################################################################################################################
 
@@ -60,47 +57,180 @@ while admin1 != admin2:
         print "Entered system administrator account name does not match."
 
 
+# Function List
+
+PackageInstall()
+PackageRemove()
+
+# CATI Policies
+SV-27049r1()
+SV-4268r5()
+SV-4339r5()
+SV-4342r5()
+SV-28646r1()
+SV-27109r1()
+SV-4255r4()
+
+# CATII Policies
+SV-29956r1()
+SV-27291r1()
+SV-26518r1()
+SV-26444r1()
+SV-1015r7()
+SV-1055r5()
+SV-4336r5()
+SV-12541r2()
+SV-27059r1()
+SV-26307r1()
+SV-26297r1()
+SV-4269-1r4()
+SV-4269-2r4()
+SV-4269-5r4()
+SV-27090r1()
+SV-27101r1()
+
 #########################################################################################################################
 #
 # Install any of the necessary packages for the system lockdown.  Install upfront since CAT changes are not always in
-# order. Any STIG required configuration will also be done as part of the ins
+# order. Any STIG required configuration will also be done as part of the install
 #
 #########################################################################################################################
 
-print 'Installing STIG required packages.\n'
+def PackageInstall:
+    print 'Installing STIG required packages.\n'
 
-#
-# SV-27270r1_rule. Auditing must be implemented.
-#
-# This script is upfront to allow for changes to the /etc/pam.d/common-auth changes that will be implemented for STIGs
-# later in the script.
-#
+    #
+    # SV-27270r1_rule. Auditing must be implemented.
+    #
+    # This script is upfront to allow for changes to the /etc/pam.d/common-auth changes that will be implemented for STIGs
+    # later in the script.
+    #
 
-# install auditd
+    # install auditd
 
-os.system('apt-get install auditd')
+    os.system('apt-get install auditd')
 
-# rotate the logs daily
+    # rotate the logs daily
 
-os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
+    os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
 
-#
-# Rule Id: SV-12442-1r6
-# Rule Title: A file integrity baseline must be created.
-#
-# The following installs tripwire and initiates the baseline if tripwire install not found
+    #
+    # Rule Id: SV-12442-1r6
+    # Rule Title: A file integrity baseline must be created.
+    #
+    # The following installs tripwire and initiates the baseline if tripwire install not found
 
-trip_check=os.system('which tripwire')
-if trip_check != 0:
-    os.system('apt-get install tripwire && tripwire --init')
+    trip_check=os.system('which tripwire')
+    if trip_check != 0:
+        os.system('apt-get install tripwire && tripwire --init')
 
-#
-# Sendmail  and postfix - not spelled out in the STIGs per say but is necessary to send administrator email in a number of 
-# the STIG changes.
-#
+    #
+    # Sendmail  and postfix - not spelled out in the STIGs per say but is necessary to send administrator email in a number of 
+    # the STIG changes.
+    #
 
-os.system('apt-get install sendmail')
-os.system('apt-get install postfix')
+    os.system('apt-get install sendmail')
+    os.system('apt-get install postfix')
+
+    #
+    # SV-782r7_rule - The system must have a host-based intrusion detection tool installed.
+    # SV-12529r3_rule - The system vulnerability assessment tool, host-based intrusion detection 
+    # tool, and file integrity tool must notify the SA and the IAO of a security breach or a suspected 
+    # security breach. For SNORT snort.debian.conf will be reset to admin.
+    #
+
+    os.system('apt-get install snort')
+
+    with open("/etc/snort/snort.debian.conf", "r+") as snort_conf_file:
+        lines = snort_conf_file.readlines()
+        snort_conf_file.seek(0)
+        for line in lines:
+            if 'DEBIAN_SNORT_STATS_RCPT' in line:
+                snort_conf_file.write("DEBIAN_SNORT_STATS_RCPT=\"%s\"\n" %str(admin1))
+            else:
+                snort_conf_file.write(line)
+    snort_conf_file.close()
+
+    #
+    # SV-28462r1_rule - The system must use and update a DoD-approved virus scan program. Open source AV installed.
+    # Sites can reconfigure as appropriate.
+    # SV-12529r3_rule - Add rule to scan once a week and email admin account.
+    #
+
+    os.system('apt-get install clamav-freshclam')
+
+    with open("/etc/cron.weekly/clamav", "w+") as clamav_file:
+        clamav_file.write("#!/bin/sh\n")
+        clamav_file.write("\n")
+        clamav_file.write("# scan the whole system, disregarding errors\n")
+        clamav_file.write("clamscan -ri / 2>/dev/null | sendmail %s\n" % str(admin1))
+    clamav_file.close()
+
+    #
+    # Roothunter install and configuration.
+    #
+
+    os.system('apt-get install rkhunter')
+
+    with open("/etc/default/rkhunter", "r+") as rkhunter_file:
+        lines = rkhunter_file.readlines()
+        rkhunter_file.seek(0)
+        for line in lines:
+            if 'CRON_DAILY_RUN' in line:
+                rkhunter_file.write("CRON_DAILY_RUN=\"yes\"\n")
+            elif 'CRON_DB_UPDATE' in line:
+                rkhunter_file.write("CRON_DB_UPDATE=\"yes\"\n")
+            elif 'REPORT_EMAIL' in line:
+                rkhunter_file.write("REPORT_EMAIL=\"%s\"\n" %str(admin1))
+            else:
+                rkhunter_file.write(line)
+    rkhunter_file.close()
+
+    #
+    # Chkrootkit install and configuration.
+    # SV-12529r3_rule - The system vulnerability assessment tool, host-based intrusion detection tool, 
+    # and file integrity tool must notify the SA and the IAO of a security breach or a suspected security breach.
+    # SV-26250r1_rule - A root kit check tool must be run on the system at least weekly.
+    #
+
+    os.system('apt-get install chkrootkit')
+
+    with open("/etc/cron.daily/chkrootkit", "r+") as chkrootkit_file:
+        lines = chkrootkit_file.readlines()
+        chkrootkit_file.seek(0)
+        for line in lines:
+            if 'eval $CHKROOTKIT $RUN_DAILY_OPTS' in line:
+                chkrootkit_file.write("eval $CHKROOTKIT $RUN_DAILY_OPTS | sendmail %s\n" % str(admin1))
+            else:
+                chkrootkit_file.write(line)
+    chkrootkit_file.close()
+
+    with open("/etc/chkrootkit.conf", "r+") as chkrootkit_conf_file:
+        lines = chkrootkit_conf_file.readlines()
+        chkrootkit_conf_file.seek(0)
+        for line in lines:
+            if 'RUN_DAILY=' in line: 
+                chkrootkit_conf_file.write("RUN_DAILY=\"true\"\n")
+            else:
+                chkrootkit_conf_file.write(line)
+    chkrootkit_conf_file.close()
+
+    #
+    # SV-26856r1_rule - The system package management tool must be used to verify system software periodically.
+    # dbsums package installed and configured.
+    #
+
+    os.system('apt-get install debsums')
+
+    with open("/etc/default/debsums", "r+") as debsums_file:
+        lines = debsums_file.readlines()
+        debsums_file.seek(0)
+        for line in lines:
+            if 'CRON_CHECK=' in line: 
+                debsums_file.write("CRON_CHECK=weekly\n")
+            else:
+                debsums_file.write(line)
+    debsums_file.close()
 
 #########################################################################################################################
 #
@@ -108,232 +238,249 @@ os.system('apt-get install postfix')
 #
 #########################################################################################################################
 
-print 'Purging STIG required packages.\n'
+PackageRemove()
+    print 'Purging packages.\n'
 
-#
-# SV-26666r1_rule - The portmap or rpcbind service must not be installed unless needed.
-#
-# Removes rpcbind and portmap
-#
+    #
+    # SV-26666r1_rule - The portmap or rpcbind service must not be installed unless needed.
+    #
+    # Removes rpcbind and portmap
+    #
 
-os.system('apt-get purge rpcbind')
+    os.system('apt-get purge rpcbind')
 
-#
-# SV-12550r5_rule - Network analysis tools must not be installed
-#
-# Removes tcpdump and mitigates nc.openbsd
-#
+    #
+    # SV-12550r5_rule - Network analysis tools must not be installed
+    #
+    # Removes tcpdump and mitigates nc.openbsd
+    #
 
-os.system('apt-get purge tcpdump')
-os.system('chmod 0000 /bin/nc.openbsd')
+    os.system('apt-get purge tcpdump')
+    os.system('chmod 0000 /bin/nc.openbsd')
+
+    # The following removes the Ubuntu package "popularity contest".  This is a package that is installed by default with
+    # Ubuntu and it sends a list of packages used by a system daily to a server. The default installation is set to "no"
+    # in the /etc/popularity-contest.config, so the package does not run, but the package has the potential to send information
+    # about a server, such as what is running, security packages, etc, so it is removed.
+
+    os.system('apt-get --purge remove popularity-contest')
+
 
 #########################################################################################################################
 #
-# Start CAT I Checks
+# Start CAT I Lockdown
 #
 #########################################################################################################################
 
-#
-# Rule-ID SV-28646r1 - OS must be a supported release
-#
-# Check if the OS is Ubuntu and is a supported ROGUE version
-#
-# Grab the OS version. Bend, fold, spindle, mutilate  - deteriorata - so that it can be verified
-#
-# First and foremost, using this script means you are using a supposted release for ROGUE
-# Second, this scipt is intended for ROGUE use and if the OS changes, so will this script.
+def SV-27049r1
+    #
+    # Rule-ID SV-27049r1 - OS must be a supported release
+    #
+    # Check if the OS is Ubuntu and is a supported ROGUE version
+    #
+    # Grab the OS version. Bend, fold, spindle, mutilate  - deteriorata - so that it can be verified
+    #
+    # First and foremost, using this script means you are using a supposted release for ROGUE
+    # Second, this scipt is intended for ROGUE use and if the OS changes, so will this script.
 
-os_cmd_check = os.system('lsb_release -d')
-os_text_string = os.popen('lsb_release -d').read().split()
-os_text_version = os_text_string[2]
-os_text_version = os_text_version.strip()
+    os_cmd_check = os.system('lsb_release -d')
+    os_text_string = os.popen('lsb_release -d').read().split()
+    os_text_version = os_text_string[2]
+    os_text_version = os_text_version.strip()
 
-if os_cmd_check != 0:
-    print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
-    exit()
+    if os_cmd_check != 0:
+        print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
+        exit()
 
-if (os_text_version != "12.03") and (os_text_version != "12.04"):
-    print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
-    exit()
+    if (os_text_version != "12.03") and (os_text_version != "12.04"):
+        print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
+        exit()
 
-#
-# Rule Id: SV-4268r5 - No special privlidge accounts
-#
-# If found, some of these accounts will be deleted.  Others will post a warning for additional verification.
+def SV-4268r5:
+    #
+    # Rule Id: SV-4268r5 - No special privlidge accounts
+    #
+    # If found, some of these accounts will be deleted.  Others will post a warning for additional verification.
+    
+    SV_shutdown = os.system('grep "shutdown" /etc/passwd /etc/shadow')
+    SV_halt = os.system('grep "halt" /etc/passwd /etc/shadow')
+    SV_reboot = os.system('grep "reboot" /etc/passwd /etc/shadow')
+    SV_vagrant = os.system('grep "vagrant" /etc/passwd /etc/shadow')
+    SV_vboxadd = os.system('grep "vboxadd" /etc/passwd /etc/shadow')
+    SV_postgres = os.system('grep "postgres" /etc/passwd /etc/shadow')
+    
+    #
+    # Specific STIG directed delete accounts
+    #
+    
+    if SV_shutdown == 0:
+        print 'Shutdown account found. Removing.\n'
+        os.system('deluser shutdown')
+    
+    if SV_halt == 0:
+        print 'halt account found. Removing.\n'
+        os.system('deluser halt')
+    
+    if SV_reboot == 0:
+        print 'reboot account found. Removing.\n'
+        os.system('deluser reboot')
+    
+    #
+    # Other application privileged users to verify.  Do not delete but note as a warning.
+    #
+    if SV_vagrant == 0:
+        print 'Warning. Vagrant account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
+    
+    if SV_vboxadd == 0:
+        print 'Warning. Vboxadd account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
+    
+    if SV_postgres == 0:
+        print 'Warning. postgres account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
 
-SV_shutdown = os.system('grep "shutdown" /etc/passwd /etc/shadow')
-SV_halt = os.system('grep "halt" /etc/passwd /etc/shadow')
-SV_reboot = os.system('grep "reboot" /etc/passwd /etc/shadow')
-SV_vagrant = os.system('grep "vagrant" /etc/passwd /etc/shadow')
-SV_vboxadd = os.system('grep "vboxadd" /etc/passwd /etc/shadow')
-SV_postgres = os.system('grep "postgres" /etc/passwd /etc/shadow')
+def SV-4339r5:
+    #
+    # Rule Id: SV-4339r5 - The Linux NFS Server must not have the insecure file locking option
+    #
+    
+    nsfd_rule = os.system('pgrep -l nfsd')
+    
+    if nsfd_rule == 0:
+        print 'NFS Server process running. This is not inecessarily an issue unless the user has unrestricted privlidges.\n'
 
-#
-# Specific STIG directed accounts
-#
-
-if SV_shutdown == 0:
-    print 'Shutdown account found. Removing.\n'
-    os.system('deluser shutdown')
-
-if SV_halt == 0:
-    print 'halt account found. Removing.\n'
-    os.system('deluser halt')
-
-if SV_reboot == 0:
-    print 'reboot account found. Removing.\n'
-    os.system('deluser reboot')
-
-#
-# Other application privileged users to verify.  Do not delete but note as a warning.
-#
-if SV_vagrant == 0:
-    print 'Warning. Vagrant account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
-
-if SV_vboxadd == 0:
-    print 'Warning. Vboxadd account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
-
-if SV_postgres == 0:
-    print 'Warning. postgres account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
-
-#
-# Rule Id: SV-4339r5 - The Linux NFS Server must not have the insecure file locking option
-#
-
-nsfd_rule = os.system('pgrep -l nfsd')
-
-if nsfd_rule == 0:
-    print 'NFS Server process running. This is not inecessarily an issue unless the user has unrestricted privlidges.\n'
-#
-# Rule Id: SV-4342r5 - The x86 CTRL-ALT-Delete key sequence must be disabled.
-#
-# Read the /etc/init/control-alt-delete.conf file and comment out contents of file if not already done.
-#
-
-with open("/etc/init/control-alt-delete.conf", "r+") as data_file:
-    lines = data_file.readlines()
-    data_file.seek(0)
-    data_file.truncate()
-    for line in lines:
-        if "start" in line:
-            if "#" in line:
-                data_file.write(line)
+def SV-4342r5:
+    #
+    # Rule Id: SV-4342r5 - The x86 CTRL-ALT-Delete key sequence must be disabled.
+    #
+    # Read the /etc/init/control-alt-delete.conf file and comment out contents of file if not already done.
+    #
+    
+    with open("/etc/init/control-alt-delete.conf", "r+") as data_file:
+        lines = data_file.readlines()
+        data_file.seek(0)
+        data_file.truncate()
+        for line in lines:
+            if "start" in line:
+                if "#" in line:
+                    data_file.write(line)
+                else:
+                    line = "# " + line
+                    data_file.write(line)
+            elif "task" in line:
+                if "#" in line:
+                    data_file.write(line)
+                else:
+                    line = "# " + line
+                    data_file.write(line)
+            elif "exec" in line:
+                if "#" in line:
+                    data_file.write(line)
+                else:
+                    line = "# " + line
+                    data_file.write(line)
             else:
-                line = "# " + line
                 data_file.write(line)
-        elif "task" in line:
-            if "#" in line:
-                data_file.write(line)
+    data_file.close()
+
+def SV-28646r1:
+    #
+    # Rule Id: SV-28646r1 - Use approved DOD time clocks
+    # Replace Ubuntu default wit DOD approved
+    #
+    # Read text file with approved clocks and replace Ubuntu default in /etc/ntp.conf.
+    #
+    
+    with open("/etc/ntp.conf", "r+") as ntp_conf_file:
+        lines = ntp_conf_file.readlines()
+        ntp_conf_file.seek(0)
+        ntp_conf_file.truncate()
+        count = 0
+        for line in lines:
+            if count == 0:
+                if "Specify one or more NTP servers" in line:
+                    count = 1
+                    ntp_conf_file.write("\n")
+                    with open("./doc/ntp-servers.txt") as ntp_servers_file:
+                        for ntp_line in ntp_servers_file:
+                            ntp_conf_file.write(ntp_line)
+                else:
+                    ntp_conf_file.write(line)
+            elif count == 1:
+                if "Access control configuration" in line:
+                    count = 2
+                    ntp_conf_file.write(line)
+            elif count == 2:
+                    ntp_conf_file.write(line)
+    ntp_conf_file.close()
+
+def SV-27109r1:
+    #
+    # Rule ID: SV-27109r1_rule - Remove nullok
+    #
+    # Remove nullok from /etc/pam.d scripts
+    
+    nullok_check=os.system('sed -i s/nullok//g /etc/pam.d/*')
+    if nullok_check == 0:
+        print 'Nullok removed from /etc/pam.d/*.\n'
+    else:
+        print 'Nullok not found in /etc/pam.d. No files changed.\n'
+
+def SV-4255r4:
+    #
+    # Rule Id: SV-4255r4 - The system boot loader must require authentication.
+    # Configure grub with root only authorization
+    #
+    # p    rompt for root boot loader password and configure grub config with new, secure, password.
+    #
+    
+    # prompt for new boot loader password
+    
+    #set password capture variables
+    pwd1=1
+    pwd2=2
+    
+    while pwd1 != pwd2:
+        pwd1 = getpass.getpass("Enter new Grub Loader Superuser Password:")
+        pwd2 = getpass.getpass("Reenter new Grub Loader Superuser Password:")
+        if pwd1 != pwd2:
+            print "Passwords do not match."
+
+    # Feed password to the script
+    child = pexpect.spawn('grub-mkpasswd-pbkdf2')
+    child.expect ('Enter password:')
+    child.sendline (pwd1)
+    child.expect ('Reenter password:')
+    child.sendline (pwd1)
+    child.expect ('is ')
+    grub_pwd = child.readline()
+    grub_pwd = grub_pwd.strip()
+
+    # configure grub_40 file with new superuser access information
+    with open("/etc/grub.d/40_custom", "r+") as grub_40_file:
+        lines = grub_40_file.readlines()
+        grub_40_file.seek(0)
+        grub_40_file.truncate()
+        count = 0
+        for line in lines:
+            if " the \'exec tail\' line above" in line:
+                    grub_40_file.write(line)
+                    grub_40_file.write("\n")
+                    grub_40_file.write("set superusers=\"root\"\n")
+                    grub_40_file.write("\n")
+                    grub_40_file.write("password_pbkdf2 root %s" % grub_pwd)
+                    grub_40_file.write("\n")
+                    break
             else:
-                line = "# " + line
-                data_file.write(line)
-        elif "exec" in line:
-            if "#" in line:
-                data_file.write(line)
-            else:
-                line = "# " + line
-                data_file.write(line)
-        else:
-            data_file.write(line)
-data_file.close()
-
-#
-# Rule Id: SV-28646r1 - Use approved DOD time clocks
-# Replace Ubuntu default wit DOD approved
-#
-# Read text file with approved clocks and replace Ubuntu default in /etc/ntp.conf.
-#
-
-with open("/etc/ntp.conf", "r+") as ntp_conf_file:
-    lines = ntp_conf_file.readlines()
-    ntp_conf_file.seek(0)
-    ntp_conf_file.truncate()
-    count = 0
-    for line in lines:
-        if count == 0:
-            if "Specify one or more NTP servers" in line:
-                count = 1
-                ntp_conf_file.write("\n")
-                with open("./doc/ntp-servers.txt") as ntp_servers_file:
-                    for ntp_line in ntp_servers_file:
-                        ntp_conf_file.write(ntp_line)
-            else:
-                ntp_conf_file.write(line)
-        elif count == 1:
-            if "Access control configuration" in line:
-                count = 2
-                ntp_conf_file.write(line)
-        elif count == 2:
-                ntp_conf_file.write(line)
-ntp_conf_file.close()
-
-#
-# Rule ID: SV-27109r1_rule - Remove nullok
-#
-# Remove nullok from /etc/pam.d scripts
-
-nullok_check=os.system('sed -i s/nullok//g /etc/pam.d/*')
-if nullok_check == 0:
-    print 'Nullok removed from /etc/pam.d/*.\n'
-else:
-    print 'Nullok not found in /etc/pam.d. No files changed.\n'
-
-#
-# Rule Id: SV-4255r4 - The system boot loader must require authentication.
-# Configure grub with root only authorization
-#
-# prompt for root boot loader password and configure grub config with new, secure, password.
-#
-
-# prompt for new boot loader password
-
-#set password capture variables
-pwd1=1
-pwd2=2
-
-while pwd1 != pwd2:
-    pwd1 = getpass.getpass("Enter new Grub Loader Superuser Password:")
-    pwd2 = getpass.getpass("Reenter new Grub Loader Superuser Password:")
-    if pwd1 != pwd2:
-        print "Passwords do not match."
-
-# Feed password to the script
-child = pexpect.spawn('grub-mkpasswd-pbkdf2')
-child.expect ('Enter password:')
-child.sendline (pwd1)
-child.expect ('Reenter password:')
-child.sendline (pwd1)
-child.expect ('is ')
-grub_pwd = child.readline()
-grub_pwd = grub_pwd.strip()
-
-# configure grub_40 file with new superuser access information
-with open("/etc/grub.d/40_custom", "r+") as grub_40_file:
-    lines = grub_40_file.readlines()
-    grub_40_file.seek(0)
-    grub_40_file.truncate()
-    count = 0
-    for line in lines:
-        if " the \'exec tail\' line above" in line:
                 grub_40_file.write(line)
-                grub_40_file.write("\n")
-                grub_40_file.write("set superusers=\"root\"\n")
-                grub_40_file.write("\n")
-                grub_40_file.write("password_pbkdf2 root %s" % grub_pwd)
-                grub_40_file.write("\n")
-                break
-        else:
-            grub_40_file.write(line)
-grub_40_file.close()
+    grub_40_file.close()
 
-# Update the grub.cfg file with the new superuser (root) access restriction
+    # Update the grub.cfg file with the new superuser (root) access restriction
 
-update_grub_check = os.system('update-grub')
-
-if update_grub_check == 0:
-    print 'Grub security updated.\n'
-else:
-    print 'Grub security update failed. Run manually after this script finishes.\n'
+    update_grub_check = os.system('update-grub')
+    
+    if update_grub_check == 0:
+        print 'Grub security updated.\n'
+    else:
+        print 'Grub security update failed. Run manually after this script finishes.\n'
 
 #########################################################################################################################
 #
@@ -347,293 +494,305 @@ else:
 #
 #########################################################################################################################
 
-#
-# Rule Id: SV-29956r1 - The /etc/gshadow file must be group-owned by root
-# Change /etc/gshadow to root if not root.  OOB is shadow.
-#
-if os.path.exists("/etc/gshadow"):
-    gsown = os.system('stat -c %G /etc/gshadow')
-    if gsown != "root":
-        print '/etc/gshadow file group changed to root.\n'
-        os.system('chgrp root /etc/gshadow')
-    else:
-        print '/etc/gshadow file group is already owned by root.\n'
-else:
-    print '/etc/gshadow does not exist.\n'
-
-# Add the STIG audit rules
-# SV-27291r1_rule, SV-27295r1_rule, SV-27302r1_rule
-# Plus change the buffers for the busy system
-
-with open("/etc/audit/audit.rules", "r+") as audit_rules_file:
-    lines = audit_rules_file.readlines()
-    audit_rules_file.seek(0)
-    for line in lines:
-        if '-b 320' in line:
-            audit_rules_file.write("# Increased for database and or Geoserver \n")
-            audit_rules_file.write("-b 750\n")
-            audit_rules_file.write("\n")
-            audit_rules_file.write("# STIG Based Audits\n")
-        elif '# Feel free to add below this line' in line:
-            audit_rules_file.write(line)
-            audit_rules_file.write("\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S open -F success=0\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S unlink -S rmdir\n")
-            audit_rules_file.write("-w /etc/audit/auditd.conf\n")
-            audit_rules_file.write("-w /etc/audit/audit.rules\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S adjtimex -S settimeofday -k time-change\n")
-            audit_rules_file.write("-a always,exit -F arch=b32 -S stime -k time-change\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S sethostname -S setdomainname -k system-locale\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S clock_settime -k time-change\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S sched_setparam -S sched_setscheduler\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S chmod -S fchmod -S fchmodat -S chown -S fchown -k perm_mod\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S fchownat -S lchown -S setxattr -S lsetxattr -S fsetxattr -k perm_mod\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S removexattr -S lremovexattr -S fremovexattr -k perm_mod\n")
-            audit_rules_file.write("-a always,exit -F arch=b32 -S chown32 -S fchown32 -S lchown32 -k perm_mod\n")
-            audit_rules_file.write("-a always,exit -F arch=x86_64 -S init_module -S delete_module -k modules\n")
-            audit_rules_file.write("-w /sbin/insmod -p x -k modules\n")
-            audit_rules_file.write("-w /sbin/modprobe -p x -k modules\n")
-            audit_rules_file.write("-w /sbin/rmmod -p x -k modules\n")
+def SV-29956r1:
+    #
+    # Rule Id: SV-29956r1 - The /etc/gshadow file must be group-owned by root
+    # Change /etc/gshadow to root if not root.  OOB is shadow.
+    #
+    if os.path.exists("/etc/gshadow"):
+        gsown = os.system('stat -c %G /etc/gshadow')
+        if gsown != "root":
+            print '/etc/gshadow file group changed to root.\n'
+            os.system('chgrp root /etc/gshadow')
         else:
-            audit_rules_file.write(line)
-audit_rules_file.close()
-
-#
-# SV-26518r1_rule. The audit system must alert the SA when the audit storage volume approaches its capacity.
-#
-# This changes the /etc/audit/audit.conf to email the administrator when the storage volume is reached.
-# It uses the admin account name set above.  
-#
-
-with open("/etc/audit/auditd.conf", "r+") as audit_conf_file:
-    lines = audit_conf_file.readlines()
-    audit_conf_file.seek(0)
-    for line in lines:
-        if 'space_left_action' in line:
-            audit_conf_file.write("space_left_action = email\n")
-        elif 'action_mail_acct' in line:
-            audit_conf_file.write("action_mail_acct = %s\n" %str(admin1))
-audit_conf_file.close()
-
-#
-# Rule Id: SV-26444r1 - The /etc/gshadow file must must have mode 0400
-# Change /etc/gshadow to 0400.  OOB is 0640.
-#
-
-if os.path.exists("/etc/gshadow"):
-    gsmod = os.system('stat -L --format=\'%04a\' /etc/gshadow')
-    if gsmod != "0400":
-        print '/etc/gshadow file mod changed to 0400.\n'
-        os.system('chmod u+r,u-wxs,g-rwxs,o-rwxt /etc/gshadow')
+            print '/etc/gshadow file group is already owned by root.\n'
     else:
-        print '/etc/gshadow file mod is already 0400.\n'
-else:
-    print '/etc/gshadow does not exist.\n'
+        print '/etc/gshadow does not exist.\n'
 
-#
-# Rule Id: SV-1015r7 - The ext3 filesystem type must be used for primary Linux
-# file system partitions.  Check to see if /etc/fstab lists any ext1 or ext2 for
-# listed active partitions.
-#
-# The script cannot fix the problem.  It only notes this as a CATII failure that
-# must be fixed separately.
-#
+def SV-27291r1:
+    # Add the STIG audit rules
+    # SV-27291r1_rule, SV-27295r1_rule, SV-27302r1_rule
+    # Plus change the buffers for the busy system
+    
+    with open("/etc/audit/audit.rules", "r+") as audit_rules_file:
+        lines = audit_rules_file.readlines()
+        audit_rules_file.seek(0)
+        for line in lines:
+            if '-b 320' in line:
+                audit_rules_file.write("# Increased for database and or Geoserver \n")
+                audit_rules_file.write("-b 750\n")
+                audit_rules_file.write("\n")
+                audit_rules_file.write("# STIG Based Audits\n")
+            elif '# Feel free to add below this line' in line:
+                audit_rules_file.write(line)
+                audit_rules_file.write("\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S open -F success=0\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S unlink -S rmdir\n")
+                audit_rules_file.write("-w /etc/audit/auditd.conf\n")
+                audit_rules_file.write("-w /etc/audit/audit.rules\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S adjtimex -S settimeofday -k time-change\n")
+                audit_rules_file.write("-a always,exit -F arch=b32 -S stime -k time-change\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S sethostname -S setdomainname -k system-locale\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S clock_settime -k time-change\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S sched_setparam -S sched_setscheduler\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S chmod -S fchmod -S fchmodat -S chown -S fchown -k perm_mod\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S fchownat -S lchown -S setxattr -S lsetxattr -S fsetxattr -k perm_mod\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S removexattr -S lremovexattr -S fremovexattr -k perm_mod\n")
+                audit_rules_file.write("-a always,exit -F arch=b32 -S chown32 -S fchown32 -S lchown32 -k perm_mod\n")
+                audit_rules_file.write("-a always,exit -F arch=x86_64 -S init_module -S delete_module -k modules\n")
+                audit_rules_file.write("-w /sbin/insmod -p x -k modules\n")
+                audit_rules_file.write("-w /sbin/modprobe -p x -k modules\n")
+                audit_rules_file.write("-w /sbin/rmmod -p x -k modules\n")
+            else:
+                audit_rules_file.write(line)
+    audit_rules_file.close()
 
-with open("/etc/fstab", "r") as fstab_file:
-    lines = fstab_file.readlines()
-    fstab_file.seek(0)
-    count = 0
-    for line in lines:
-        pos_1 = line[0]
-        if pos_1 == '#': continue
-        elif 'ext1' in line:
-            print '/etc/fstab contains an active ext1 file system.  CATII failure.\n'
-        elif 'ext2' in line:
-            print '/etc/fstab contains an active ext2 file system.  CATII failure.\n'
-        else: continue
+SV-26518r1()
+    #
+    # SV-26518r1_rule. The audit system must alert the SA when the audit storage volume approaches its capacity.
+    #
+    # This changes the /etc/audit/audit.conf to email the administrator when the storage volume is reached.
+    # It uses the admin account name set above.  
+    #
+    
+    with open("/etc/audit/auditd.conf", "r+") as audit_conf_file:
+        lines = audit_conf_file.readlines()
+        audit_conf_file.seek(0)
+        for line in lines:
+            if 'space_left_action' in line:
+                audit_conf_file.write("space_left_action = email\n")
+            elif 'action_mail_acct' in line:
+                audit_conf_file.write("action_mail_acct = %s\n" %str(admin1))
+    audit_conf_file.close()
 
-#
-# Rule Id: SV-1055r5 - The /etc/security/access.conf file must have mode 0640 or less
-# Change from 0644 to 0640.
-#
-
-if os.path.exists("/etc/security/access.conf"):
-    acmod = os.system('stat -L --format=\'%04a\' /etc/security/access.conf')
-    if acmod != "0640":
-        print '/etc/security/access.conf file mod changed to 0640.\n'
-        os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/security/access.conf')
-    else:
-        print '/etc/security/access.conf file mod is already 0640.\n'
-else:
-    print '/etc/security/access.conf does not exist.\n'
-
-#
-# Rule Id: SV-4336r5 - The /etc/sysctl.conf file must have mode 0600 or less
-# Change from 0644 to 0600.
-#
-
-if os.path.exists("/etc/sysctl.conf"):
-    scmod = os.system('stat -L --format=\'%04a\' /etc/sysctl.conf')
-    if scmod != "0600":
-        print '/etc/security/access.conf file mod changed to 0600.\n'
-        os.system('chmod u+rw,u-xs,g-rwxs,o-rwxt /etc/sysctl.conf')
-    else:
-        print '/etc/sysctl.conf file mod is already 0600.\n'
-else:
-    print '/etc/sysctl.conf does not exist.\n'
-
-#
-# Rule Id: SV-12541r2 - The /etc/securetty file must have mode 0640 or less
-# Change from 0644 to 0640.
-#
-
-if os.path.exists("/etc/securetty"):
-    stymod = os.system('stat -L --format=\'%04a\' /etc/sysctl.conf')
-    if stymod != "0640":
-        print '/etc/securetty file mode changed to 0640.\n'
-        os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/sysctl.conf')
-    else:
-        print '/etc/securetty file mod is already 0640.\n'
-else:
-    print '/etc/securetty does not exist.\n'
-
-#
-# Rule Id: SV-27059r1 - Vendor-recommended software patches and updates, and
-# system security patches and updates, must be installed and up-to-date.
-#
-
-with open("/etc/apt/apt.conf.d/10periodic", "r+") as periodic_file:
-    periodic_file.seek(0)
-    periodic_file.truncate()
-    periodic_file.write("APT::Periodic::Update-Package-Lists \"1\";\n")
-    periodic_file.write("APT::Periodic::Download-Upgradeable-Packages \"1\";\n")
-    periodic_file.write("APT::Periodic::AutocleanInterval \"7\";\n")
-    periodic_file.write("APT::Periodic::Unattended-Upgrade \"1\";\n")
-periodic_file.close()
-print 'Vendor upgrades set to automatic.\n'
-
-#
-# Rule Id: SV-26307r1_rule
-# Rule Title: The system time synchronization method must use cryptographic algorithms to verify 
-# the authenticity and integrity of the time data.
-#
-# OOB Ubuntu does not have this configured.  This will be noted as a failure in the check log only.
-# No separate configuration check will be done.
-#
-
-print 'CATII SV-12442-1r6 Failure. NTP not configured to use cryptographic algorithms to verify the authenticity and integrity of the time data.\n'
-
-#
-# Rule Id: SV-26297r1_rule
-# Rule Title: The time synchronization configuration file (such as /etc/ntp.conf) must have mode 0640 or less permissive.
-#
-
-if os.path.exists("/etc/ntp.conf"):
-    ntpconfmod = os.system('stat -L --format=\'%04a\' /etc/ntp.conf')
-    if ntpconfmod != "0640":
-        os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/ntp.conf')
-        print '/etc/ntp.conf file mode changed to 0640.\n'
-    else:
-        print '/etc/ntp.conf file mod is already 0640.\n'
-else:
-    print 'SV-26297r1 CATII Failure /etc/ntp.conf does not exist.\n'
-
-#
-#Rule Id: SV-4269-1r4_rule
-#Rule Title: The system must not have the unnecessary games account.
-#
-# Checks for user games and removes the user and group games if user games is
-# found.  Group is also removed by the system since it is only associated with the user
-# games and not required by the system otherwise.
-#
-
-games_user_check=os.system('grep ^games /etc/passwd')
-if games_user_check == 0:
-    os.system('deluser --remove-home --remove-all-files games')
-    print 'User games and group games removed from system.\n'
-else:
-    print 'User games not found.\n'
-
-#
-# Rule Id: SV-4269-2r4_rule
-# Rule Title: The system must not have the unnecessary news account.
-#
-# Checks for user news and removes the user and group news if user news is
-# found.  Group is also removed by the system since it is only associated with the user
-# news and not required by the system otherwise.
-#
-
-news_user_check=os.system('grep ^news /etc/passwd')
-if news_user_check == 0:
-    os.system('deluser --remove-home --remove-all-files news')
-    print 'User news and group news removed from system.\n'
-else:
-    print 'User news not found.\n'
-
-#
-# Rule Id: SV-4269-2r4_rule
-# Rule Title: The system must not have the unnecessary lp account.
-#
-# Checks for user lp and removes the user and group lp if user lp is
-# found.  Group is also removed by the system since it is only associated with the user
-# lp and not required by the system otherwise.
-#
-
-lp_user_check=os.system('grep ^news /etc/passwd')
-if lp_user_check == 0:
-    os.system('deluser --remove-home --remove-all-files lp')
-    print 'User lp and group lp removed from system.\n'
-else:
-    print 'User lp not found.\n'
-
-#
-# Rule Id: SV-27090r1_rule - The system must disable accounts after three consecutive 
-# unsuccessful login attempts.  This sets the level in the /etc/pam.d/common-auth file.
-#
-
-with open("/etc/pam.d/common-auth", "r+") as com_auth_file:
-    lines = com_auth_file.readlines()
-    com_auth_file.seek(0)
-    com_auth_file.truncate()
-    for line in lines:
-        if "# pam-auth-update(8) for details" in line:
-            com_auth_file.write(line) 
-            com_auth_file.write("\n")
-            com_auth_file.write("auth required pam_tally.so per_user magic_root deny=3 lock_time=4 onerr=fail\n")
-            com_auth_file.write("\n")
+SV-26444r1()
+    #
+    # Rule Id: SV-26444r1 - The /etc/gshadow file must must have mode 0400
+    # Change /etc/gshadow to 0400.  OOB is 0640.
+    #
+    
+    if os.path.exists("/etc/gshadow"):
+        gsmod = os.system('stat -L --format=\'%04a\' /etc/gshadow')
+        if gsmod != "0400":
+            print '/etc/gshadow file mod changed to 0400.\n'
+            os.system('chmod u+r,u-wxs,g-rwxs,o-rwxt /etc/gshadow')
         else:
-            com_auth_file.write(line)
-com_auth_file.close()
+            print '/etc/gshadow file mod is already 0400.\n'
+    else:
+        print '/etc/gshadow does not exist.\n'
 
-#
-# Addresses Rule Id's: SV-27101r1_rule and SV-27129r1_rule - Cannot change password more than once a day,
-# and must be changed every 60 days.
-#
+def SV-1015r7:
+    #
+    # Rule Id: SV-1015r7 - The ext3 filesystem type must be used for primary Linux
+    # file system partitions.  Check to see if /etc/fstab lists any ext1 or ext2 for
+    # listed active partitions.
+    #
+    # The script cannot fix the problem.  It only notes this as a CATII failure that
+    # must be fixed separately.
+    #
+    
+    with open("/etc/fstab", "r") as fstab_file:
+        lines = fstab_file.readlines()
+        fstab_file.seek(0)
+        count = 0
+        for line in lines:
+            pos_1 = line[0]
+            if pos_1 == '#': continue
+            elif 'ext1' in line:
+                print '/etc/fstab contains an active ext1 file system.  CATII failure.\n'
+            elif 'ext2' in line:
+                print '/etc/fstab contains an active ext2 file system.  CATII failure.\n'
+            else: continue
 
-with open("/etc/login.defs", "r+") as logdefs_file:
-    lines = logdefs_file.readlines()
-    logdefs_file.seek(0)
-    logdefs_file.truncate()
-    count=0
-    for line in lines:
-        if count == 0 and "# Password aging controls" in line:
-            logdefs_file.write(line)
-            logdefs_file.write("#\n")
-            logdefs_file.write("\n")
-            logdefs_file.write("PASS_MAX_DAYS   60\n")
-            logdefs_file.write("PASS_MIN_DAYS   1\n")
-            logdefs_file.write("PASS_WARN_AGE   7\n")
-            logdefs_file.write("\n")
-            count=1
-        elif count == 1 and "PASS_" in line: continue
-        elif count == 1 and "max values for automatic uid selection in useradd" in line:
-            logdefs_file.write("#\n")
-            logdefs_file.write(line)
-            count=2
-        elif count == 1 and "\n" in line: continue
+def SV-1055r5:
+    #
+    # Rule Id: SV-1055r5 - The /etc/security/access.conf file must have mode 0640 or less
+    # Change from 0644 to 0640.
+    #
+    
+    if os.path.exists("/etc/security/access.conf"):
+        acmod = os.system('stat -L --format=\'%04a\' /etc/security/access.conf')
+        if acmod != "0640":
+            print '/etc/security/access.conf file mod changed to 0640.\n'
+            os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/security/access.conf')
         else:
-            logdefs_file.write(line)
-logdefs_file.close()
+            print '/etc/security/access.conf file mod is already 0640.\n'
+    else:
+        print '/etc/security/access.conf does not exist.\n'
+
+def SV-4336r5:
+    #
+    # Rule Id: SV-4336r5 - The /etc/sysctl.conf file must have mode 0600 or less
+    # Change from 0644 to 0600.
+    #
+    
+    if os.path.exists("/etc/sysctl.conf"):
+        scmod = os.system('stat -L --format=\'%04a\' /etc/sysctl.conf')
+        if scmod != "0600":
+            print '/etc/security/access.conf file mod changed to 0600.\n'
+            os.system('chmod u+rw,u-xs,g-rwxs,o-rwxt /etc/sysctl.conf')
+        else:
+            print '/etc/sysctl.conf file mod is already 0600.\n'
+    else:
+        print '/etc/sysctl.conf does not exist.\n'
+
+def SV-12541r2:
+    #
+    # Rule Id: SV-12541r2 - The /etc/securetty file must have mode 0640 or less
+    # Change from 0644 to 0640.
+    #
+    
+    if os.path.exists("/etc/securetty"):
+        stymod = os.system('stat -L --format=\'%04a\' /etc/sysctl.conf')
+        if stymod != "0640":
+            print '/etc/securetty file mode changed to 0640.\n'
+            os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/sysctl.conf')
+        else:
+            print '/etc/securetty file mod is already 0640.\n'
+    else:
+        print '/etc/securetty does not exist.\n'
+
+def SV-27059r1:
+    #
+    # Rule Id: SV-27059r1 - Vendor-recommended software patches and updates, and
+    # system security patches and updates, must be installed and up-to-date.
+    #
+    
+    with open("/etc/apt/apt.conf.d/10periodic", "r+") as periodic_file:
+        periodic_file.seek(0)
+        periodic_file.truncate()
+        periodic_file.write("APT::Periodic::Update-Package-Lists \"1\";\n")
+        periodic_file.write("APT::Periodic::Download-Upgradeable-Packages \"1\";\n")
+        periodic_file.write("APT::Periodic::AutocleanInterval \"7\";\n")
+        periodic_file.write("APT::Periodic::Unattended-Upgrade \"1\";\n")
+    periodic_file.close()
+    print 'Vendor upgrades set to automatic.\n'
+
+def SV-26307r1:
+    #
+    # Rule Id: SV-26307r1_rule
+    # Rule Title: The system time synchronization method must use cryptographic algorithms to verify 
+    # the authenticity and integrity of the time data.
+    #
+    # OOB Ubuntu does not have this configured.  This will be noted as a failure in the check log only.
+    # No separate configuration check will be done.
+    #
+
+    print 'CATII SV-26307r1 Failure. NTP not configured to use cryptographic algorithms to verify the authenticity and integrity of the time data.\n'
+
+def SV-26297r1:
+    #
+    # Rule Id: SV-26297r1_rule - The time synchronization configuration file (such as /etc/ntp.conf) must have mode 0640 or less permissive.
+    #
+    
+    if os.path.exists("/etc/ntp.conf"):
+        ntpconfmod = os.system('stat -L --format=\'%04a\' /etc/ntp.conf')
+        if ntpconfmod != "0640":
+            os.system('chmod u+rw,u-xs,g+r,g-wxs,o-rwxt /etc/ntp.conf')
+            print '/etc/ntp.conf file mode changed to 0640.\n'
+        else:
+            print '/etc/ntp.conf file mod is already 0640.\n'
+    else:
+        print 'SV-26297r1 CATII Failure /etc/ntp.conf does not exist.\n'
+
+def SV-4269-1r4:
+    #
+    #Rule Id: SV-4269-1r4_rule - The system must not have the unnecessary games account.
+    #
+    # Checks for user games and removes the user and group games if user games is
+    # found.  Group is also removed by the system since it is only associated with the user
+    # games and not required by the system otherwise.
+    #
+
+    games_user_check=os.system('grep ^games /etc/passwd')
+    if games_user_check == 0:
+        os.system('deluser --remove-home --remove-all-files games')
+        print 'User games and group games removed from system.\n'
+    else:
+        print 'User games not found.\n'
+
+def SV-4269-2r4:
+    #
+    # Rule Id: SV-4269-2r4_rule - The system must not have the unnecessary news account.
+    #
+    # Checks for user news and removes the user and group news if user news is
+    # found.  Group is also removed by the system since it is only associated with the user
+    # news and not required by the system otherwise.
+    #
+
+    news_user_check=os.system('grep ^news /etc/passwd')
+    if news_user_check == 0:
+        os.system('deluser --remove-home --remove-all-files news')
+        print 'User news and group news removed from system.\n'
+    else:
+        print 'User news not found.\n'
+
+def SV-4269-5r4:
+    #
+    # Rule Id: SV-4269-5r4_rule - The system must not have the unnecessary lp account.
+    #
+    # Checks for user lp and removes the user and group lp if user lp is
+    # found.  Group is also removed by the system since it is only associated with the user
+    # lp and not required by the system otherwise.
+    #
+    
+    lp_user_check=os.system('grep ^news /etc/passwd')
+    if lp_user_check == 0:
+        os.system('deluser --remove-home --remove-all-files lp')
+        print 'User lp and group lp removed from system.\n'
+    else:
+        print 'User lp not found.\n'
+
+def SV-27090r1:
+    #
+    # Rule Id: SV-27090r1_rule - The system must disable accounts after three consecutive 
+    # unsuccessful login attempts.  This sets the level in the /etc/pam.d/common-auth file.
+    #
+    
+    with open("/etc/pam.d/common-auth", "r+") as com_auth_file:
+        lines = com_auth_file.readlines()
+        com_auth_file.seek(0)
+        com_auth_file.truncate()
+        for line in lines:
+            if "# pam-auth-update(8) for details" in line:
+                com_auth_file.write(line) 
+                com_auth_file.write("\n")
+                com_auth_file.write("auth required pam_tally.so per_user magic_root deny=3 lock_time=4 onerr=fail\n")
+                com_auth_file.write("\n")
+            else:
+                com_auth_file.write(line)
+    com_auth_file.close()
+
+def SV-27101r1:
+    #
+    # Addresses Rule Id's: SV-27101r1_rule and SV-27129r1_rule - Cannot change password more than once a day,
+    # and must be changed every 60 days.
+    #
+    
+    with open("/etc/login.defs", "r+") as logdefs_file:
+        lines = logdefs_file.readlines()
+        logdefs_file.seek(0)
+        logdefs_file.truncate()
+        count=0
+        for line in lines:
+            if count == 0 and "# Password aging controls" in line:
+                logdefs_file.write(line)
+                logdefs_file.write("#\n")
+                logdefs_file.write("\n")
+                logdefs_file.write("PASS_MAX_DAYS   60\n")
+                logdefs_file.write("PASS_MIN_DAYS   1\n")
+                logdefs_file.write("PASS_WARN_AGE   7\n")
+                logdefs_file.write("\n")
+                count=1
+            elif count == 1 and "PASS_" in line: continue
+            elif count == 1 and "max values for automatic uid selection in useradd" in line:
+                logdefs_file.write("#\n")
+                logdefs_file.write(line)
+                count=2
+            elif count == 1 and "\n" in line: continue
+            else:
+                logdefs_file.write(line)
+    logdefs_file.close()
 
 #
 # Rule Id: SV-27114r1_rule, SV-26321r1_rule, SV-27122r1_rule, SV-27125r1_rule, SV-27128r1_rule, SV-26323r1_rule,
@@ -1023,106 +1182,6 @@ with open("/etc/ssh/sshd_config", "r+") as sshd_config_file:
 sshd_config_file.close()
 
 #
-# SV-782r7_rule - The system must have a host-based intrusion detection tool installed.
-# SV-12529r3_rule - The system vulnerability assessment tool, host-based intrusion detection 
-# tool, and file integrity tool must notify the SA and the IAO of a security breach or a suspected 
-# security breach. For SNORT snort.debian.conf will be reset to admin.
-#
-
-os.system('apt-get install snort')
-
-with open("/etc/snort/snort.debian.conf", "r+") as snort_conf_file:
-    lines = snort_conf_file.readlines()
-    snort_conf_file.seek(0)
-    for line in lines:
-        if 'DEBIAN_SNORT_STATS_RCPT' in line:
-            snort_conf_file.write("DEBIAN_SNORT_STATS_RCPT=\"%s\"\n" %str(admin1))
-        else:
-            snort_conf_file.write(line)
-snort_conf_file.close()
-
-#
-# SV-28462r1_rule - The system must use and update a DoD-approved virus scan program. Open source AV installed.
-# Sites can reconfigure as appropriate.
-# SV-12529r3_rule - Add rule to scan once a week and email admin account.
-#
-
-os.system('apt-get install clamav-freshclam')
-
-with open("/etc/cron.weekly/clamav", "w+") as clamav_file:
-    clamav_file.write("#!/bin/sh\n")
-    clamav_file.write("\n")
-    clamav_file.write("# scan the whole system, disregarding errors\n")
-    clamav_file.write("clamscan -ri / 2>/dev/null | sendmail %s\n" % str(admin1))
-clamav_file.close()
-
-#
-# Roothunter install and configuration.
-#
-
-os.system('apt-get install rkhunter')
-
-with open("/etc/default/rkhunter", "r+") as rkhunter_file:
-    lines = rkhunter_file.readlines()
-    rkhunter_file.seek(0)
-    for line in lines:
-        if 'CRON_DAILY_RUN' in line:
-            rkhunter_file.write("CRON_DAILY_RUN=\"yes\"\n")
-        elif 'CRON_DB_UPDATE' in line:
-            rkhunter_file.write("CRON_DB_UPDATE=\"yes\"\n")
-        elif 'REPORT_EMAIL' in line:
-            rkhunter_file.write("REPORT_EMAIL=\"%s\"\n" %str(admin1))
-        else:
-            rkhunter_file.write(line)
-rkhunter_file.close()
-
-#
-# Chkrootkit install and configuration.
-# SV-12529r3_rule - The system vulnerability assessment tool, host-based intrusion detection tool, 
-# and file integrity tool must notify the SA and the IAO of a security breach or a suspected security breach.
-# SV-26250r1_rule - A root kit check tool must be run on the system at least weekly.
-#
-
-os.system('apt-get install chkrootkit')
-
-with open("/etc/cron.daily/chkrootkit", "r+") as chkrootkit_file:
-    lines = chkrootkit_file.readlines()
-    chkrootkit_file.seek(0)
-    for line in lines:
-        if 'eval $CHKROOTKIT $RUN_DAILY_OPTS' in line:
-            chkrootkit_file.write("eval $CHKROOTKIT $RUN_DAILY_OPTS | sendmail %s\n" % str(admin1))
-        else:
-            chkrootkit_file.write(line)
-chkrootkit_file.close()
-
-with open("/etc/chkrootkit.conf", "r+") as chkrootkit_conf_file:
-    lines = chkrootkit_conf_file.readlines()
-    chkrootkit_conf_file.seek(0)
-    for line in lines:
-        if 'RUN_DAILY=' in line: 
-            chkrootkit_conf_file.write("RUN_DAILY=\"true\"\n")
-        else:
-            chkrootkit_conf_file.write(line)
-chkrootkit_conf_file.close()
-
-#
-# SV-26856r1_rule - The system package management tool must be used to verify system software periodically.
-# dbsums package installed and configured.
-#
-
-os.system('apt-get install debsums')
-
-with open("/etc/default/debsums", "r+") as debsums_file:
-    lines = debsums_file.readlines()
-    debsums_file.seek(0)
-    for line in lines:
-        if 'CRON_CHECK=' in line: 
-            debsums_file.write("CRON_CHECK=weekly\n")
-        else:
-            debsums_file.write(line)
-debsums_file.close()
-
-#
 # SV-29414r1_rule - 
 #
 # uncomment if going to implement the ldd restriction.
@@ -1179,13 +1238,6 @@ os.system('chmod 0400 /boot/grub/grub.cfg')
 # Those findings are fixed here.
 #
 #########################################################################################################################
-
-# The following removes the Ubuntu package "popularity contest".  This is a package that is installed by default with
-# Ubuntu and it sends a list of packages used by a system daily to a server. The default installation is set to "no"
-# in the /etc/popularity-contest.config, so the package does not run, but the package has the potential to send information
-# about a server, such as what is running, security packages, etc, so it is removed.
-
-os.system('apt-get --purge remove popularity-contest')
 
 # Remove the games directories. The games account was deleted but games directories exist.
 

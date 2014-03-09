@@ -3,24 +3,27 @@ stig based system security lockdown
 
 JAM
 LMN Solutions
-Version 0.2
-Dec 2013
+Version 0.9
+09 Mar 2014
 
-The main scripts in this project are based on the DISA unclassified STIG
-documentation.  They automate securing a system OS or database based on a
-review of the STIG documentation and guidelines.
+The scripts in this project are based on the DISA unclassified STIG documentation.  
+They automate securing a system OS or database based on a review of the STIG documentation 
+and guidelines.
 
-The scripts are designed for the ROGUE JCTD and decisions are based on that project
-but are compatible with any compatible system since the decisions made for the lockdowns are
-intended to secure a system with intent for authority to connect and operate on
-secure networks.
+The OS lockdown is designed and tested for Ubuntu 12.03 and 12.04 LTS.
 
-The OS script is designed and tested for Ubuntu 12.03 and 12.04 LTS.
+The scripts are designed for the ROGUE JCTD project and decisions are based on that project.
+The lockdown is designed with a complete ROGUE system build in mind, not after the OS installation.  
+This means some of the database lockdowns will be added to this script.  Even so, the scripts are 
+compatible or configurable with other Ubuntu 12.03 or 12.04 since the final build will perform checks 
+for ROGUE build decisions that may not be part of an OS specific installation.
 
-The database script is designed for Postgresql with PostGIS
+A Postgresql database script will eventually be written.  PostGIS is the database of choice for the project
+and is part of the Geoserver distribution primarily for admin purposes but ROGUE is using this distribution
+database for an open distribution, single server distribution architecture.
 
-The scripts assume an "out of the box" Ubuntu or Postgresql installation.  Any system
-unique considerations will be annotated in the lockdown scripts.
+There are implementation specific considerations that are identified in the lockdown report. Adding the 
+report with this distribution has not been decided.
 
 The scripts only correct findings not found to be compliant with the DISA STIG or guides.
 A manual review was conducted of all CATI and CATII.  CATIII items are not corrected. In
@@ -30,4 +33,17 @@ FIPS compliant algorithm to secure passwords. The project these scripts are desi
 will not address those issues.
 
 This is a work in progress with an intent of having a gamma release for testing in the spring
-of 2013.
+of 2014.
+
+To Do:
+
+There are several CATS that need more research or made more flexible.  Time was important to get a 90% solution
+so some of the lockdows were moved to do later. A complete "To Do" list will be compiled later but for now this
+is what I am working on.
+
+- Break all the rule lockdowns into separate functions and add a function call list to the top.  This way the executed 
+  functions can be adjusted to testing / trouble shooting.
+- SV-27203r1_rule. Move the postgres user home out of the postgres application directory.
+- SV-760r6_rule. Remove postgres direct login since it is an application account.  Not sure what to do with the vagrant account yet.
+- SV-26307r1. Do a check for ntp crypto servers and not a default unclass assumption response.
+- SV-905r6_rule. make this a rule for all accounts and not just a hack for the vagrant account.
