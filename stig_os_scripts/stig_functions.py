@@ -22,7 +22,7 @@ import getpass
 pexpect_check=os.system('dpkg --get-selections | grep pexpect')
 
 if pexpect_check != 0:
-    os.system('apt-get install python-pexpect')
+    os.system('apt-get install -y python-pexpect')
     import pexpect
 else:
     import pexpect
@@ -46,7 +46,7 @@ def audit():
 
     # install auditd
 
-    os.system('apt-get install auditd')
+    os.system('apt-get install -y auditd')
 
     # rotate the logs daily
 
@@ -63,7 +63,7 @@ def tripwire(admin1):
 
     trip_check=os.system('which tripwire')
     if trip_check != 0:
-        os.system('apt-get install tripwire && tripwire --init')
+        os.system('apt-get install -y tripwire && tripwire --init')
 
     #
     # Tripwire configuration
@@ -149,8 +149,8 @@ def mail():
     # the STIG changes.
     #
 
-    os.system('apt-get install sendmail')
-    os.system('apt-get install postfix')
+    os.system('apt-get install -y sendmail')
+    os.system('apt-get install -y postfix')
 
 def snort(admin1):
     #
@@ -161,7 +161,7 @@ def snort(admin1):
     #
 
     print 'Installing snort.\n'
-    os.system('apt-get install snort')
+    os.system('apt-get install -y snort')
 
     print 'Configuring snort.\n'
     with open("/etc/snort/snort.debian.conf", "r+") as snort_conf_file:
@@ -182,7 +182,7 @@ def clamav(admin1):
     #
 
     print 'Installing Clamav.\n'
-    os.system('apt-get install clamav-freshclam')
+    os.system('apt-get install -y clamav-freshclam')
 
     print 'Configuring Clamav.\n'
     with open("/etc/cron.weekly/clamav", "w+") as clamav_file:
@@ -198,7 +198,7 @@ def rkhunter(admin1):
     #
 
     print 'Installing rkhunter.\n'
-    os.system('apt-get install rkhunter')
+    os.system('apt-get install -y rkhunter')
 
     print 'Configuring rkhunter.\n'
     with open("/etc/default/rkhunter", "r+") as rkhunter_file:
@@ -224,7 +224,7 @@ def chkrootkit(admin1):
     #
 
     print 'Installing chkrootkit.\n'
-    os.system('apt-get install chkrootkit')
+    os.system('apt-get install -y chkrootkit')
 
     print 'Configuring chkrootkit.\n'
     with open("/etc/cron.daily/chkrootkit", "r+") as chkrootkit_file:
@@ -254,7 +254,7 @@ def dbsums():
     #
 
     print 'Installing dbsums.\n'
-    os.system('apt-get install debsums')
+    os.system('apt-get install -y debsums')
 
     print 'Configuring dbsums.\n'
     with open("/etc/default/debsums", "r+") as debsums_file:
@@ -281,7 +281,7 @@ def rpcbind():
     #
 
     print 'Purging dbsums.\n'
-    os.system('apt-get purge rpcbind')
+    os.system('apt-get purge -y rpcbind')
 
 def tpcdump():
     #
@@ -291,7 +291,7 @@ def tpcdump():
     #
 
     print 'Purging tpcdump and nullifying openbsb.\n'
-    os.system('apt-get purge tcpdump')
+    os.system('apt-get purge -y tcpdump')
     os.system('chmod 0000 /bin/nc.openbsd')
 
 def popularity():
@@ -301,7 +301,7 @@ def popularity():
     # about a server, such as what is running, security packages, etc, so it is removed.
 
     print 'Purging popularity.\n'
-    os.system('apt-get --purge remove popularity-contest')
+    os.system('apt-get --purge -y remove popularity-contest')
 
 
 #########################################################################################################################
@@ -902,9 +902,9 @@ def SV787r9():
     #
     # Rule Id: SV-787r9_rule. System log files must have mode 0640 or less permissive.
     # Changes /var/log mod from 0755 to 0640
-    #
+    # Changed to 0645 because Postgres needs execute on its log file.  Really, fails otherwise.
     
-    os.system('chmod 0640 /var/log')
+    os.system('chmod 0645 /var/log')
 
 def SV800r7():
     #
