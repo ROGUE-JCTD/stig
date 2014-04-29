@@ -5,7 +5,7 @@
 # JAM
 # LMN Solutions
 # Version 0.99
-# March 2014
+# 29 April 2014
 #########################################################################################################################
 # 
 # This script is designed and tested for Ubuntu 12.03 and 12.04 LTS
@@ -54,7 +54,7 @@ stig_functions.snort(admin1)
 stig_functions.clamav(admin1)
 stig_functions.rkhunter(admin1)
 stig_functions.chkrootkit(admin1)
-stig_functions.dbsums()
+stig_functions.debsums()
 
 # Purge Packages
 stig_functions.rpcbind()
@@ -62,11 +62,10 @@ stig_functions.tpcdump()
 stig_functions.popularity()
 
 # CATI Policies
-stig_functions.SV27049r1()
 stig_functions.SV4268r5()
 stig_functions.SV4339r5()
 stig_functions.SV4342r5()
-stig_functions.SV28646r1()
+stig_functions.SV28646r1() # ./doc/ntp-servers.txt contains a list of default servers.  Update for approved organization servers as appropriate.
 stig_functions.SV27109r1()
 stig_functions.SV4255r4()
 

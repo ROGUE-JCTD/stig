@@ -4,7 +4,7 @@
 # JAM
 # LMN Solutions
 # Version 0.99
-# March 2014
+# 29 April 2014
 #########################################################################################################################
 
 # Load the imports required by the script.
@@ -14,9 +14,39 @@ import subprocess
 import stat
 import getpass
 
+# Check the OS version first.  Meets a STIG requirement and if it's not a supported version for this lockdown script exit
+#
+# Rule-ID SV-27049r1 - OS must be a supported release
+#
+# Check if the OS is Ubuntu and is a supported ROGUE version
+#
+# Grab the OS version. Bend, fold, spindle, mutilate  - deteriorata - so that it can be verified
+#
+# First and foremost, using this script means you are using a supposted release for ROGUE
+# Second, this scipt is intended for ROGUE use and if the OS changes, so will this script.
+
+os_cmd_check = os.system('lsb_release -d')
+os_text_string = os.popen('lsb_release -d').read().split()
+os_text_version = os_text_string[2]
+os_text_version = os_text_version.strip()
+
+if os_cmd_check != 0:
+    print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
+    exit()
+
+if (os_text_version != "12.03") and (os_text_version != "12.04"):
+    print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
+    exit()
+
+#
+# Do a package update to get the latest package indexes.  Some packages will fail if this is not done.
+#
+
+os.system('apt-get update')
+
 # Install python-pexpect since it is required by the script.
 
-# check if installed. If not, install it.
+# Check if installed. If not, install it.
 #
 
 pexpect_check=os.system('dpkg --get-selections | grep pexpect')
@@ -34,6 +64,13 @@ else:
 #
 #########################################################################################################################
 
+#
+# The checks ascertain if a particular STIG OS CAT has been applied.  If found it assumes reconfiguration is not needed.
+# If not found it applies the particular lockdown.
+# This is a conscious decision for a desire not to make this an admin check script but rather a STIG lockdown for an initial
+# OS lockdown or system reprovision.
+#
+
 def audit():
     print 'Installing auditing.\n'
 
@@ -46,24 +83,21 @@ def audit():
 
     # install auditd
 
-    os.system('apt-get install -y auditd')
-
-    # rotate the logs daily
-
-    print 'Configuring auditing.\n'
-    os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
+    auditd_check=os.system('dpkg --get-selections | grep auditd')
+    if auditd_check != 0:
+        os.system('apt-get install -y auditd')
+        # rotate the logs daily
+        print 'Configuring auditing.\n'
+        os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
+    else:
+        print 'auditd already installed.\n'
 
 def tripwire(admin1):
-    print 'Installing tripwire.\n'
     #
     # Rule Id: SV-12442-1r6
     # Rule Title: A file integrity baseline must be created.
     #
     # The following installs tripwire and initiates the baseline if tripwire install not found
-
-    trip_check=os.system('which tripwire')
-    if trip_check != 0:
-        os.system('apt-get install -y tripwire && tripwire --init')
 
     #
     # Tripwire configuration
@@ -75,72 +109,69 @@ def tripwire(admin1):
     #
     # Build a weekly cron job to check if there are any diffs and notify the admin user.
     #
-    
-    # Find all the SUID and GUID and put in file to parse through.  This is done as a command to account for system install variations.
-    
-    print 'Configuring tripwire.\n'
-    os.system('find / -type f -perm -2000 -print > /var/log/sgid-file-list;chmod 0600 /var/log/sgid-file-list;chown root:root /var/log/sgid-file-list;')
-    os.system('find / -type f -perm -4000 -print > /var/log/suid-file-list;chmod 0600 /var/log/suid-file-list;chown root:root /var/log/suid-file-list;')
-    
-    # Modify the tripwire policy file and add the SUID and GUID checks
-    
-    with open("/etc/tripwire/twpol.txt", "a") as twpol_file:
-        with open("/var/log/suid-file-list", "r") as SUID_file:
-            SUID_file.seek(0)
-            twpol_file.write("#\n")
-            twpol_file.write("# SUID files\n")
-            twpol_file.write("#\n")
-            twpol_file.write("(\n")
-            twpol_file.write("  rulename = \"SUID Files\",\n")
-            twpol_file.write("  severity = $(SIG_HI),\n")
-            twpol_file.write(")\n")
-            twpol_file.write("{\n")
-            lines = SUID_file.readlines()
+    trip_check=os.system('dpkg --get-selections | grep tripwire')
+    if trip_check != 0:
+        print 'Installing tripwire.\n'
+        os.system('apt-get install -y tripwire && tripwire --init')
+        # Find all the SUID and GUID and put in file to parse through.  This is done as a command to account for system install variations.
+        print 'Configuring tripwire.\n'
+        os.system('find / -type f -perm -2000 -print > /var/log/sgid-file-list;chmod 0600 /var/log/sgid-file-list;chown root:root /var/log/sgid-file-list;')
+        os.system('find / -type f -perm -4000 -print > /var/log/suid-file-list;chmod 0600 /var/log/suid-file-list;chown root:root /var/log/suid-file-list;')
+        # Modify the tripwire policy file and add the SUID and GUID checks
+        with open("/etc/tripwire/twpol.txt", "a") as twpol_file:
+            with open("/var/log/suid-file-list", "r") as SUID_file:
+                SUID_file.seek(0)
+                twpol_file.write("#\n")
+                twpol_file.write("# SUID files\n")
+                twpol_file.write("#\n")
+                twpol_file.write("(\n")
+                twpol_file.write("  rulename = \"SUID Files\",\n")
+                twpol_file.write("  severity = $(SIG_HI),\n")
+                twpol_file.write(")\n")
+                twpol_file.write("{\n")
+                lines = SUID_file.readlines()
+                for line in lines:
+                    string = line.strip('\n')
+                    string2 = "        " + string + " -> $(SEC_BIN) ;\n"
+                    twpol_file.write(string2)
+                twpol_file.write("}\n")
+                twpol_file.write("\n")
+            SUID_file.close()
+            with open("/var/log/sgid-file-list", "r") as SGID_file:
+                SGID_file.seek(0)
+                twpol_file.write("#\n")
+                twpol_file.write("# SGID files\n")
+                twpol_file.write("#\n")
+                twpol_file.write("(\n")
+                twpol_file.write("  rulename = \"SGID Files\",\n")
+                twpol_file.write("  severity = $(SIG_HI),\n")
+                twpol_file.write(")\n")
+                twpol_file.write("{\n")
+                lines = SGID_file.readlines()
+                for line in lines:
+                    string = line.strip('\n')
+                    string2 = "        " + string + " -> $(SEC_BIN) ;\n"
+                    twpol_file.write(string2)
+                twpol_file.write("}\n")
+                twpol_file.write("\n")
+            SGID_file.close()
+        twpol_file.close()
+        # add the admin email for every rulename
+        with open("/etc/tripwire/twpol.txt", "r+") as twpol2_file:
+            lines = twpol2_file.readlines()
+            twpol2_file.seek(0)
+            twpol2_file.truncate()
             for line in lines:
-                string = line.strip('\n')
-                string2 = "        " + string + " -> $(SEC_BIN) ;\n"
-                twpol_file.write(string2)
-            twpol_file.write("}\n")
-            twpol_file.write("\n")
-        SUID_file.close()
-    
-        with open("/var/log/sgid-file-list", "r") as SGID_file:
-            SGID_file.seek(0)
-            twpol_file.write("#\n")
-            twpol_file.write("# SGID files\n")
-            twpol_file.write("#\n")
-            twpol_file.write("(\n")
-            twpol_file.write("  rulename = \"SGID Files\",\n")
-            twpol_file.write("  severity = $(SIG_HI),\n")
-            twpol_file.write(")\n")
-            twpol_file.write("{\n")
-            lines = SGID_file.readlines()
-            for line in lines:
-                string = line.strip('\n')
-                string2 = "        " + string + " -> $(SEC_BIN) ;\n"
-                twpol_file.write(string2)
-            twpol_file.write("}\n")
-            twpol_file.write("\n")
-        SGID_file.close()
-    twpol_file.close()
-    
-    # add the admin email for every rulename
-    
-    with open("/etc/tripwire/twpol.txt", "r+") as twpol2_file:
-        lines = twpol2_file.readlines()
-        twpol2_file.seek(0)
-        twpol2_file.truncate()
-        for line in lines:
-            if "severity" in line:
-                twpol2_file.write(line)
-                twpol2_file.write("  emailto = %s\n" %str(admin1))
-            else:
-                twpol2_file.write(line)
-    twpol2_file.close()
-    
-    # Update the Tripwire policy
-    
-    os.system('twadmin --create-polfile /etc/tripwire/twpol.txt')
+                if "severity" in line:
+                    twpol2_file.write(line)
+                    twpol2_file.write("  emailto = %s\n" %str(admin1))
+                else:
+                    twpol2_file.write(line)
+        twpol2_file.close()
+        # Update the Tripwire policy
+        os.system('twadmin --create-polfile /etc/tripwire/twpol.txt')
+    else:
+        print 'tripwire already installed.\n'
 
 def mail():
     print 'Installing mail and postfix.\n'
@@ -149,8 +180,16 @@ def mail():
     # the STIG changes.
     #
 
-    os.system('apt-get install -y sendmail')
-    os.system('apt-get install -y postfix')
+    sendmail_check=os.system('dpkg --get-selections | grep sendmail')
+    postfix_check=os.system('dpkg --get-selections | grep sendmail')
+    if sendmail_check != 0:
+        print 'Installing sendmail.\n'
+        os.system('apt-get install -y sendmail')
+    if postfix_check != 0:
+        print 'Installing postfix.\n'
+        os.system('apt-get install -y postfix')
+    else:
+        print 'sendmail and postfix already installed.\n'
 
 def snort(admin1):
     #
@@ -160,19 +199,22 @@ def snort(admin1):
     # security breach. For SNORT snort.debian.conf will be reset to admin.
     #
 
-    print 'Installing snort.\n'
-    os.system('apt-get install -y snort')
-
-    print 'Configuring snort.\n'
-    with open("/etc/snort/snort.debian.conf", "r+") as snort_conf_file:
-        lines = snort_conf_file.readlines()
-        snort_conf_file.seek(0)
-        for line in lines:
-            if 'DEBIAN_SNORT_STATS_RCPT' in line:
-                snort_conf_file.write("DEBIAN_SNORT_STATS_RCPT=\"%s\"\n" %str(admin1))
-            else:
-                snort_conf_file.write(line)
-    snort_conf_file.close()
+    snort_check=os.system('dpkg --get-selections | grep snort')
+    if snort_check != 0:
+        print 'Installing snort.\n'
+        os.system('apt-get install -y snort')
+        print 'Configuring snort.\n'
+        with open("/etc/snort/snort.debian.conf", "r+") as snort_conf_file:
+            lines = snort_conf_file.readlines()
+            snort_conf_file.seek(0)
+            for line in lines:
+                if 'DEBIAN_SNORT_STATS_RCPT' in line:
+                    snort_conf_file.write("DEBIAN_SNORT_STATS_RCPT=\"%s\"\n" %str(admin1))
+                else:
+                    snort_conf_file.write(line)
+        snort_conf_file.close()
+    else:
+        print 'snort already installed.\n'
 
 def clamav(admin1):
     #
@@ -181,39 +223,46 @@ def clamav(admin1):
     # SV-12529r3_rule - Add rule to scan once a week and email admin account.
     #
 
-    print 'Installing Clamav.\n'
-    os.system('apt-get install -y clamav-freshclam')
-
-    print 'Configuring Clamav.\n'
-    with open("/etc/cron.weekly/clamav", "w+") as clamav_file:
-        clamav_file.write("#!/bin/sh\n")
-        clamav_file.write("\n")
-        clamav_file.write("# scan the whole system, disregarding errors\n")
-        clamav_file.write("clamscan -ri / 2>/dev/null | sendmail %s\n" % str(admin1))
-    clamav_file.close()
+    clamav_check=os.system('dpkg --get-selections | grep clamav')
+    if clamav_check != 0:
+        print 'Installing Clam AntiVurus.\n'
+        os.system('apt-get install -y clamav-freshclam')
+        print 'Configuring Clamav.\n'
+        os.system('freshclam')
+        with open("/etc/cron.weekly/clamav", "w+") as clamav_file:
+            clamav_file.write("#!/bin/sh\n")
+            clamav_file.write("\n")
+            clamav_file.write("# scan the whole system, disregarding errors\n")
+            clamav_file.write("clamscan -ri / 2>/dev/null | sendmail %s\n" % str(admin1))
+        clamav_file.close()
+    else:
+        print 'Clam AV already installed.\n'
 
 def rkhunter(admin1):
     #
     # Roothunter install and configuration.
     #
 
-    print 'Installing rkhunter.\n'
-    os.system('apt-get install -y rkhunter')
-
-    print 'Configuring rkhunter.\n'
-    with open("/etc/default/rkhunter", "r+") as rkhunter_file:
-        lines = rkhunter_file.readlines()
-        rkhunter_file.seek(0)
-        for line in lines:
-            if 'CRON_DAILY_RUN' in line:
-                rkhunter_file.write("CRON_DAILY_RUN=\"yes\"\n")
-            elif 'CRON_DB_UPDATE' in line:
-                rkhunter_file.write("CRON_DB_UPDATE=\"yes\"\n")
-            elif 'REPORT_EMAIL' in line:
-                rkhunter_file.write("REPORT_EMAIL=\"%s\"\n" %str(admin1))
-            else:
-                rkhunter_file.write(line)
-    rkhunter_file.close()
+    rkhunter_check=os.system('dpkg --get-selections | grep rkhunter')
+    if rkhunter_check != 0:
+        print 'Installing rkhunter.\n'
+        os.system('apt-get install -y rkhunter')
+        print 'Configuring rkhunter.\n'
+        with open("/etc/default/rkhunter", "r+") as rkhunter_file:
+            lines = rkhunter_file.readlines()
+            rkhunter_file.seek(0)
+            for line in lines:
+                if 'CRON_DAILY_RUN' in line:
+                    rkhunter_file.write("CRON_DAILY_RUN=\"yes\"\n")
+                elif 'CRON_DB_UPDATE' in line:
+                    rkhunter_file.write("CRON_DB_UPDATE=\"yes\"\n")
+                elif 'REPORT_EMAIL' in line:
+                    rkhunter_file.write("REPORT_EMAIL=\"%s\"\n" %str(admin1))
+                else:
+                    rkhunter_file.write(line)
+        rkhunter_file.close()
+    else:
+        print 'rkhunter already installed.\n'
 
 def chkrootkit(admin1):
     #
@@ -223,49 +272,58 @@ def chkrootkit(admin1):
     # SV-26250r1_rule - A root kit check tool must be run on the system at least weekly.
     #
 
-    print 'Installing chkrootkit.\n'
-    os.system('apt-get install -y chkrootkit')
+    chkrootkit_check=os.system('dpkg --get-selections | grep chkrootkit')
+    if chkrootkit_check != 0:
+        print 'Installing chkrootkit.\n'
+        os.system('apt-get install -y chkrootkit')
+        print 'Configuring chkrootkit.\n'
+        with open("/etc/cron.daily/chkrootkit", "r+") as chkrootkit_file:
+            lines = chkrootkit_file.readlines()
+            chkrootkit_file.seek(0)
+            for line in lines:
+                if 'eval $CHKROOTKIT $RUN_DAILY_OPTS' in line:
+                    chkrootkit_file.write("eval $CHKROOTKIT $RUN_DAILY_OPTS | sendmail %s\n" % str(admin1))
+                else:
+                    chkrootkit_file.write(line)
+        chkrootkit_file.close()
+        with open("/etc/chkrootkit.conf", "r+") as chkrootkit_conf_file:
+            lines = chkrootkit_conf_file.readlines()
+            chkrootkit_conf_file.seek(0)
+            for line in lines:
+                if 'RUN_DAILY=' in line: 
+                    chkrootkit_conf_file.write("RUN_DAILY=\"true\"\n")
+                else:
+                    chkrootkit_conf_file.write(line)
+        chkrootkit_conf_file.close()
+    else:
+        print 'chkrootkit already installed.\n'
 
-    print 'Configuring chkrootkit.\n'
-    with open("/etc/cron.daily/chkrootkit", "r+") as chkrootkit_file:
-        lines = chkrootkit_file.readlines()
-        chkrootkit_file.seek(0)
-        for line in lines:
-            if 'eval $CHKROOTKIT $RUN_DAILY_OPTS' in line:
-                chkrootkit_file.write("eval $CHKROOTKIT $RUN_DAILY_OPTS | sendmail %s\n" % str(admin1))
-            else:
-                chkrootkit_file.write(line)
-    chkrootkit_file.close()
-
-    with open("/etc/chkrootkit.conf", "r+") as chkrootkit_conf_file:
-        lines = chkrootkit_conf_file.readlines()
-        chkrootkit_conf_file.seek(0)
-        for line in lines:
-            if 'RUN_DAILY=' in line: 
-                chkrootkit_conf_file.write("RUN_DAILY=\"true\"\n")
-            else:
-                chkrootkit_conf_file.write(line)
-    chkrootkit_conf_file.close()
-
-def dbsums():
+def debsums():
     #
     # SV-26856r1_rule - The system package management tool must be used to verify system software periodically.
-    # dbsums package installed and configured.
+    # debsums package installed and configured.
     #
 
-    print 'Installing dbsums.\n'
-    os.system('apt-get install -y debsums')
+    debsums_check=os.system('dpkg --get-selections | grep debsums')
+    if debsums_check != 0:
+        print 'Installing debsums.\n'
+        os.system('apt-get install -y debsums')
+    else:
+        print 'debsums already installed.\n'
 
-    print 'Configuring dbsums.\n'
-    with open("/etc/default/debsums", "r+") as debsums_file:
-        lines = debsums_file.readlines()
-        debsums_file.seek(0)
-        for line in lines:
-            if 'CRON_CHECK=' in line: 
-                debsums_file.write("CRON_CHECK=weekly\n")
-            else:
-                debsums_file.write(line)
-    debsums_file.close()
+    if "CRON_CHECK=weekly" not in open('/etc/default/debsums').read():
+        print 'Configuring debsums.\n'
+        with open("/etc/default/debsums", "r+") as debsums_file:
+            lines = debsums_file.readlines()
+            debsums_file.seek(0)
+            for line in lines:
+                if 'CRON_CHECK=' in line: 
+                    debsums_file.write("CRON_CHECK=weekly\n")
+                else:
+                    debsums_file.write(line)
+        debsums_file.close()
+    else:
+        print 'debsums already configured.\n'
 
 #########################################################################################################################
 #
@@ -280,8 +338,12 @@ def rpcbind():
     # Removes rpcbind and portmap
     #
 
-    print 'Purging dbsums.\n'
-    os.system('apt-get purge -y rpcbind')
+    rpcbind_check=os.system('dpkg --get-selections | grep rpcbind')
+    if rpcbind_check == 0:
+        print 'Purging dbsums.\n'
+        os.system('apt-get purge -y rpcbind')
+    else:
+        print 'rpcbind not installed.\n'
 
 def tpcdump():
     #
@@ -290,9 +352,15 @@ def tpcdump():
     # Removes tcpdump and mitigates nc.openbsd
     #
 
-    print 'Purging tpcdump and nullifying openbsb.\n'
-    os.system('apt-get purge -y tcpdump')
-    os.system('chmod 0000 /bin/nc.openbsd')
+    tpcdump_check=os.system('dpkg --get-selections | grep tcpdump')
+    if tpcdump_check == 0:
+        print 'Purging tpcdump and nullifying openbsb.\n'
+        os.system('apt-get purge -y tcpdump')
+        os.system('chmod 0000 /bin/nc.openbsd')
+    else:
+        print 'tpcdump not installed.\n'
+        print 'openbsb nullified.\n'
+        os.system('chmod 0000 /bin/nc.openbsd')
 
 def popularity():
     # The following removes the Ubuntu package "popularity contest".  This is a package that is installed by default with
@@ -300,8 +368,12 @@ def popularity():
     # in the /etc/popularity-contest.config, so the package does not run, but the package has the potential to send information
     # about a server, such as what is running, security packages, etc, so it is removed.
 
-    print 'Purging popularity.\n'
-    os.system('apt-get --purge -y remove popularity-contest')
+    popularity_check=os.system('dpkg --get-selections | grep popularity-contest')
+    if popularity_check == 0:
+        print 'Purging popularity-contest.\n'
+        os.system('apt-get --purge -y remove popularity-contest')
+    else:
+        print 'popularity-contest not installed.\n'
 
 
 #########################################################################################################################
@@ -309,30 +381,6 @@ def popularity():
 # Start CAT I Lockdown
 #
 #########################################################################################################################
-
-def SV27049r1():
-    #
-    # Rule-ID SV-27049r1 - OS must be a supported release
-    #
-    # Check if the OS is Ubuntu and is a supported ROGUE version
-    #
-    # Grab the OS version. Bend, fold, spindle, mutilate  - deteriorata - so that it can be verified
-    #
-    # First and foremost, using this script means you are using a supposted release for ROGUE
-    # Second, this scipt is intended for ROGUE use and if the OS changes, so will this script.
-
-    os_cmd_check = os.system('lsb_release -d')
-    os_text_string = os.popen('lsb_release -d').read().split()
-    os_text_version = os_text_string[2]
-    os_text_version = os_text_version.strip()
-
-    if os_cmd_check != 0:
-        print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
-        exit()
-
-    if (os_text_version != "12.03") and (os_text_version != "12.04"):
-        print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
-        exit()
 
 def SV4268r5():
     #
@@ -367,13 +415,31 @@ def SV4268r5():
     # Other application privileged users to verify.  Do not delete but note as a warning.
     #
     if SV_vagrant == 0:
-        print 'Warning. Vagrant account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
+        print 'Vagrant account found.\n'
+        vagrant_sudo = os.system('grep sudo /etc/group | grep vagrant')
+        UID = os.system("cat /etc/passwd | grep vagrant | cut -f3 -d':'")
+        if vagrant_sudo == 0:
+            print 'Vagrant account has sudo privileges. This is not necessarily an issue and is noted for administrator review.\n'
+        if UID < 1000:
+            print 'Vagrant user ID is less than 1000. This is not necessarily an issue if the account is used as a system account.\n'
     
     if SV_vboxadd == 0:
-        print 'Warning. Vboxadd account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
+        print 'Vboxadd account found.\n'
+        vboxadd_sudo = os.system('grep sudo /etc/group | grep vboxadd')
+        UID = os.system("cat /etc/passwd | grep vboxadd | cut -f3 -d':'")
+        if vboxadd_sudo == 0:
+            print 'Vboxadd account has sudo privileges. This is not necessarily an issue and is just noted for administrator information.\n'
+        if UID < 1000:
+            print 'Vboxadd user ID is less than 1000. This is not necessarily an issue if the account is used as a system account.\n'
     
     if SV_postgres == 0:
-        print 'Warning. postgres account found. This is not inecessarily an issue unless the user has unrestricted privlidges. Noted for follow-on analysis.\n'
+        print 'Postgres account found.\n'
+        postgres_sudo = os.system('grep sudo /etc/group | grep postgres')
+        UID = os.system("cat /etc/passwd | grep postgres | cut -f3 -d':'")
+        if postgres_sudo == 0:
+            print 'Postgres account has sudo privileges. This is not necessarily an issue and is just noted for administrator information.\n'
+        if UID < 1000:
+            print 'Postgres user ID is less than 1000. This is not necessarily an issue if the account is used as a system account.\n'
 
 def SV4339r5():
     #
@@ -392,32 +458,34 @@ def SV4342r5():
     # Read the /etc/init/control-alt-delete.conf file and comment out contents of file if not already done.
     #
     
-    with open("/etc/init/control-alt-delete.conf", "r+") as data_file:
-        lines = data_file.readlines()
-        data_file.seek(0)
-        data_file.truncate()
-        for line in lines:
-            if "start" in line:
-                if "#" in line:
-                    data_file.write(line)
+    if "# exec shutdown -r now" not in open('/etc/init/control-alt-delete.conf').read():
+        print 'Removing control-alt-delete capability.\n'
+        with open("/etc/init/control-alt-delete.conf", "r+") as data_file:
+            lines = data_file.readlines()
+            data_file.seek(0)
+            data_file.truncate()
+            for line in lines:
+                if "start" in line:
+                    if "#" in line:
+                        data_file.write(line)
+                    else:
+                        line = "# " + line
+                        data_file.write(line)
+                elif "task" in line:
+                    if "#" in line:
+                        data_file.write(line)
+                    else:
+                        line = "# " + line
+                        data_file.write(line)
+                elif "exec" in line:
+                    if "#" in line:
+                        data_file.write(line)
+                    else:
+                        line = "# " + line
+                        data_file.write(line)
                 else:
-                    line = "# " + line
                     data_file.write(line)
-            elif "task" in line:
-                if "#" in line:
-                    data_file.write(line)
-                else:
-                    line = "# " + line
-                    data_file.write(line)
-            elif "exec" in line:
-                if "#" in line:
-                    data_file.write(line)
-                else:
-                    line = "# " + line
-                    data_file.write(line)
-            else:
-                data_file.write(line)
-    data_file.close()
+        data_file.close()
 
 def SV28646r1():
     #
@@ -455,9 +523,11 @@ def SV27109r1():
     # Rule ID: SV-27109r1_rule - Remove nullok
     #
     # Remove nullok from /etc/pam.d scripts
-    
-    nullok_check=os.system('sed -i s/nullok//g /etc/pam.d/*')
+
+    nullok_check = os.system('grep nullok /etc/pam.d/*')
+
     if nullok_check == 0:
+        os.system('sed -i s/nullok//g /etc/pam.d/*')
         print 'Nullok removed from /etc/pam.d/*.\n'
     else:
         print 'Nullok not found in /etc/pam.d. No files changed.\n'
@@ -472,53 +542,51 @@ def SV4255r4():
     
     # prompt for new boot loader password
     
-    #set password capture variables
-    pwd1=1
-    pwd2=2
-    
-    while pwd1 != pwd2:
-        pwd1 = getpass.getpass("Enter new Grub Loader Superuser Password:")
-        pwd2 = getpass.getpass("Reenter new Grub Loader Superuser Password:")
-        if pwd1 != pwd2:
-            print "Passwords do not match."
-    
-    # Feed password to the script
-    child = pexpect.spawn('grub-mkpasswd-pbkdf2')
-    child.expect ('Enter password:')
-    child.sendline (pwd1)
-    child.expect ('Reenter password:')
-    child.sendline (pwd1)
-    child.expect ('is ')
-    grub_pwd = child.readline()
-    grub_pwd = grub_pwd.strip()
-    
-    # configure grub_40 file with new superuser access information
-    with open("/etc/grub.d/40_custom", "r+") as grub_40_file:
-        lines = grub_40_file.readlines()
-        grub_40_file.seek(0)
-        grub_40_file.truncate()
-        count = 0
-        for line in lines:
-            if " the \'exec tail\' line above" in line:
+    if "password_pbkdf2 root" not in open('/etc/grub.d/40_custom').read():
+        #set password capture variables
+        pwd1=1
+        pwd2=2
+        while pwd1 != pwd2:
+            pwd1 = getpass.getpass("Enter new Grub Loader Superuser Password:")
+            pwd2 = getpass.getpass("Reenter new Grub Loader Superuser Password:")
+            if pwd1 != pwd2:
+                print "Passwords do not match."
+
+        # Feed password to the script
+        child = pexpect.spawn('grub-mkpasswd-pbkdf2')
+        child.expect ('Enter password:')
+        child.sendline (pwd1)
+        child.expect ('Reenter password:')
+        child.sendline (pwd1)
+        child.expect ('is ')
+        grub_pwd = child.readline()
+        grub_pwd = grub_pwd.strip()
+
+        # configure grub_40 file with new superuser access information
+        with open("/etc/grub.d/40_custom", "r+") as grub_40_file:
+            lines = grub_40_file.readlines()
+            grub_40_file.seek(0)
+            grub_40_file.truncate()
+            count = 0
+            for line in lines:
+                if " the \'exec tail\' line above" in line:
+                        grub_40_file.write(line)
+                        grub_40_file.write("\n")
+                        grub_40_file.write("set superusers=\"root\"\n")
+                        grub_40_file.write("\n")
+                        grub_40_file.write("password_pbkdf2 root %s" % grub_pwd)
+                        grub_40_file.write("\n")
+                        break
+                else:
                     grub_40_file.write(line)
-                    grub_40_file.write("\n")
-                    grub_40_file.write("set superusers=\"root\"\n")
-                    grub_40_file.write("\n")
-                    grub_40_file.write("password_pbkdf2 root %s" % grub_pwd)
-                    grub_40_file.write("\n")
-                    break
-            else:
-                grub_40_file.write(line)
-    grub_40_file.close()
-    
-    # Update the grub.cfg file with the new superuser (root) access restriction
-    
-    update_grub_check = os.system('update-grub')
-     
-    if update_grub_check == 0:
-        print 'Grub security updated.\n'
-    else:
-        print 'Grub security update failed. Run manually after this script finishes.\n'
+        grub_40_file.close()
+
+        # Update the grub.cfg file with the new superuser (root) access restriction
+        update_grub_check = os.system('update-grub')
+        if update_grub_check == 0:
+            print 'Grub security updated.\n'
+        else:
+            print 'Grub security update failed. Run manually after this script finishes.\n'
 
 #########################################################################################################################
 #
