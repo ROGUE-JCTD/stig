@@ -1242,7 +1242,7 @@ def SV4364r7():
         os.system('chown root:root /var/spool/cron/atjobs')
         print '/var/spool/cron/atjobs permissions set to 0700 and ownership set to root.\n'
     else:
-        print '/var/spool/cron/atjobs doesn't exist.\n'
+        print '/var/spool/cron/atjobs doesn\'t exist.\n'
 
 def SV26572r1():
     #
@@ -1253,7 +1253,7 @@ def SV26572r1():
         os.system('chown root:root /etc/at.deny')
         print '/etc/at.deny ownership changed to root.\n'
     else:
-        print '/var/spool/cron/atdeny doesn't exist.\n'
+        print '/var/spool/cron/atdeny doesn\'t exist.\n'
 
 def SV29290r1():
     #
@@ -1292,11 +1292,11 @@ def SV29290r1():
                 sysctl_file.write("net.ipv6.conf.all.forwarding = 0\n")
                 sysctl_file.write("net.ipv6.conf.default.forwarding = 0\n")
             sysctl_file.close()
-        print 'STIG IP source routing directed disabling added.\n'
+            print 'STIG IP source routing directed disabling added.\n'
         else:
             print 'STIG IP source routing directed in effect.\n'
     else:
-        print '/etc/sysctl.conf doesn't exist.\n'
+        print '/etc/sysctl.conf doesn\'t exist.\n'
     
     if not os.path.exists("/etc/modprobe.d/blacklist.conf"):
         if "iblacklist ipv6" not in open('/etc/modprobe.d/blacklist.conf').read():
@@ -1306,7 +1306,7 @@ def SV29290r1():
         else:
             print 'ipv6 already blacklisted /etc/modprobe.d/blacklist.conf.\n'
     else:
-        print '/etc/modprobe.d/blacklist.conf doesn't exist.\n'
+        print '/etc/modprobe.d/blacklist.conf doesn\'t exist.\n'
 
 def SV12507r6():
     #
@@ -1324,7 +1324,7 @@ def SV12507r6():
             mailhelp_file.close()
             print 'SMTP service HELP command disabled.\n'
     else:
-        print '/etc/mail/helpfile doesn't exist.\n'
+        print '/etc/mail/helpfile doesn\'t exist.\n'
 
 def SV28408r1():
     #
