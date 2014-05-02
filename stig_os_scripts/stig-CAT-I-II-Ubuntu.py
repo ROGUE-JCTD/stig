@@ -33,7 +33,7 @@ import stig_functions
 #
 #########################################################################################################################
 
-print 'Get system administrator account name to configure administrator funstions identified by the STIG.\n'
+print 'Get system administrator account name to configure administrator functions identified by the STIG.\n'
 
 admin1=1
 admin2=2
@@ -91,12 +91,12 @@ stig_functions.SV27146r1()
 stig_functions.SV1047r7()
 stig_functions.SV787r9()
 stig_functions.SV12482r4()
+stig_functions.SV808r6()
 stig_functions.SV905r6()
 stig_functions.SV924r6()
 stig_functions.SV27320r1()
 stig_functions.SV27341r1()
 stig_functions.SV27352r1()
-stig_functions.SV27357r1()
 stig_functions.SV27379r1()
 stig_functions.SV4364r7()
 stig_functions.SV26572r1()
@@ -105,6 +105,7 @@ stig_functions.SV12507r6()
 stig_functions.SV26740r1()
 stig_functions.SV26749r1()
 stig_functions.SV28762r1()
+stig_functions.SV28408r1()
 #stig_functions.SV29414r1() - ldd chmod.  Disabled because you get some weird issues when it's changed.  Need to investigate more.
 stig_functions.SV26192r()
 stig_functions.iptablerules()
