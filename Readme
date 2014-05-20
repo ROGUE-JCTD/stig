@@ -1,0 +1,50 @@
+stig based system security lockdown
+====
+
+JAM
+LMN Solutions
+Version 0.9
+May 2014
+
+The scripts in this project are designed to secure Ubuntu 12.04.  The scripts are based 
+on the DISA unclassified STIG documentation for securing Redhat, as well as general DISA guidelines 
+for applications and operating systems.  They automate securing a system OS or database based on a 
+review of the STIG documentation and guidelines.
+
+The OS lockdown is designed and tested for Ubuntu 12.03 and 12.04 LTS.
+
+The scripts are designed for the ROGUE JCTD project and decisions are based on that project.
+The scripts are compatible or configurable with other Ubuntu 12.03 or 12.04.
+
+A Postgresql database script may eventually be written.  PostGIS is the database of choice for the project
+and is part of the Geoserver distribution primarily for admin purposes but ROGUE is using this distribution
+database for an open distribution, single server distribution architecture.
+
+There are implementation specific considerations that are identified in the lockdown report. Adding the 
+report with this distribution has not been decided yet.
+
+The scripts only correct findings not found to be compliant with the DISA STIG or guides. If the OS out of the box
+meets the lockdown then no fix was scripted. A manual review was conducted of all CATI and CATII.  CATIII items were not reviewed. 
+
+In some cases findings were considered "site specific issues" and are not addressed in the scripts, nor are findings deemed out of scope. 
+An example of this is Postgres not using a FIPS compliant algorithm to secure passwords. The project these scripts are designed for
+will not address those issues.
+
+To Do:
+
+A complete "To Do" list will be compiled later but for now this is what I am working on:
+
+Completed: 
+
+- Break all the rule lockdowns into separate functions and add a function call list to the top.  This way the executed functions can be adjusted to testing / trouble shooting.
+- Better function checking instead of abrupt breaks.
+- Checks to see if a lockdown has been conducted before conducting the lockdown.
+- Can reuse the script as a lockdown script.  Before was designed for a fresh install only. It is now suitable for later use.
+
+Still to do (some of them anyway):
+
+- SV-26307r1. Do a check for ntp crypto servers and not a default unclass assumption response.
+- SV-27203r1_rule. Check to see if the postgres is used as a application account, user or both.  If not strictly an application account move the user home 
+  out of the postgres application directory.
+- SV-760r6_rule. Remove postgres direct login. A decision still has to be made about the vagrant account.
+
