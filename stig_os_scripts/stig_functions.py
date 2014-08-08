@@ -34,7 +34,7 @@ if os_cmd_check != 0:
     print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
     exit()
 
-if (os_text_version != "12.03") and (os_text_version != "12.04") and (os_text_version != "12.04.4"):
+if (os_text_version != "12.03") and (os_text_version != "12.04") and (os_text_version != "12.04.4") and (os_text_version != "12.04.5"):
     print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
     exit()
 
