@@ -48,6 +48,7 @@ while admin1 != admin2:
 
 # Install and configure packages
 stig_functions.audit()
+stig_functions.ntp_server()
 stig_functions.tripwire(admin1)
 stig_functions.mail()
 stig_functions.snort(admin1)

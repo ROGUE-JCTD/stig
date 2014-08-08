@@ -34,7 +34,7 @@ if os_cmd_check != 0:
     print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
     exit()
 
-if (os_text_version != "12.03") and (os_text_version != "12.04"):
+if (os_text_version != "12.03") and (os_text_version != "12.04") and (os_text_version != "12.04.4"):
     print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
     exit()
 
@@ -72,7 +72,6 @@ else:
 #
 
 def audit():
-    print 'Installing auditing.\n'
 
     #
     # SV-27270r1_rule. Auditing must be implemented.
@@ -85,12 +84,27 @@ def audit():
 
     auditd_check=os.system('dpkg --get-selections | grep auditd')
     if auditd_check != 0:
+        print 'Installing auditing.\n'
         os.system('apt-get install -y auditd')
         # rotate the logs daily
         print 'Configuring auditing.\n'
         os.system('cp ./doc/auditd /etc/cron.daily;chmod 700 /etc/cron.daily/auditd;chown root:root /etc/cron.daily/auditd')
     else:
         print 'auditd already installed.\n'
+
+def ntp_server():
+
+    #
+    # Ran into an instance where ntp was not installed as part of the Ubuntu. 
+    # If ntp server isn't installed, install it for later STIG required configuration.
+    #
+
+    ntp_check=os.system('dpkg --get-selections | grep \'\<ntp\>\'')
+    if ntp_check != 0:
+        print 'Installing ntp server.\n'
+        os.system('apt-get install -y ntp')
+    else:
+        print 'ntp is already installed.\n'
 
 def tripwire(admin1):
     #
@@ -496,28 +510,32 @@ def SV28646r1():
     # Read text file with approved clocks and replace Ubuntu default in /etc/ntp.conf.
     #
     
-    with open("/etc/ntp.conf", "r+") as ntp_conf_file:
-        lines = ntp_conf_file.readlines()
-        ntp_conf_file.seek(0)
-        ntp_conf_file.truncate()
-        count = 0
-        for line in lines:
-            if count == 0:
-                if "Specify one or more NTP servers" in line:
-                    count = 1
-                    ntp_conf_file.write("\n")
-                    with open("./doc/ntp-servers.txt") as ntp_servers_file:
-                        for ntp_line in ntp_servers_file:
-                            ntp_conf_file.write(ntp_line)
-                else:
-                    ntp_conf_file.write(line)
-            elif count == 1:
-                if "Access control configuration" in line:
-                    count = 2
-                    ntp_conf_file.write(line)
-            elif count == 2:
-                    ntp_conf_file.write(line)
-    ntp_conf_file.close()
+    if os.path.exists("/etc/ntp.conf"):
+        with open("/etc/ntp.conf", "r+") as ntp_conf_file:
+            lines = ntp_conf_file.readlines()
+            ntp_conf_file.seek(0)
+            ntp_conf_file.truncate()
+            count = 0
+            for line in lines:
+                if count == 0:
+                    if "Specify one or more NTP servers" in line:
+                        count = 1
+                        ntp_conf_file.write("\n")
+                        with open("./doc/ntp-servers.txt") as ntp_servers_file:
+                            for ntp_line in ntp_servers_file:
+                                ntp_conf_file.write(ntp_line)
+                    else:
+                        ntp_conf_file.write(line)
+                elif count == 1:
+                    if "Access control configuration" in line:
+                        count = 2
+                        ntp_conf_file.write(line)
+                elif count == 2:
+                        ntp_conf_file.write(line)
+        ntp_conf_file.close()
+    else:
+        print 'NTP server not installed or found. Please install and rerun the setup.\n'
+        
 
 def SV27109r1():
     #
@@ -805,11 +823,14 @@ def SV26307r1():
     # No separate configuration check will be done.
     #
 
-    time_crypto_check = os.system('grep ^server /etc/ntp.conf | grep \'( key | autokey )\'')
-    if time_crypto_check != 0:
-        print 'CATII SV-26307r1 Failure. NTP not configured to use cryptographic algorithms to verify the authenticity and integrity of the time data.\n'
+    if os.path.exists("/etc/ntp.conf"):
+        time_crypto_check = os.system('grep ^server /etc/ntp.conf | grep \'( key | autokey )\'')
+        if time_crypto_check != 0:
+            print 'CATII SV-26307r1 Failure. NTP not configured to use cryptographic algorithms to verify the authenticity and integrity of the time data.\n'
+        else:
+            print 'Appears NTP servers employ time cryptographic algorithmsi to verify time data.\n'
     else:
-        print 'Appears NTP servers employ time cryptographic algorithmsi to verify time data.\n'
+        print 'ntp.conf file not found.  Install ntp server..\n'
 
 def SV26297r1():
     #
@@ -1499,3 +1520,4 @@ def grubmod():
             print '/boot/grub/grub.cfg mode is already 0400. File permissions not changed.\n'
     else:
         print '/boot/grub/grub.cfg file not found.\n' 
+
