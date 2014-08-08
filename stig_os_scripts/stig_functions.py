@@ -1521,3 +1521,71 @@ def grubmod():
     else:
         print '/boot/grub/grub.cfg file not found.\n' 
 
+def acl_check():
+    #
+    #
+    #
+    #
+
+    if os.path.exists("/etc/gshadow"):
+        ACLOUT="+"
+        ACLOUT=os.system('getfacl --skip-base /etc/gshadow 2>/dev/null')
+        if ACLOUT != ""
+            os.system('setfacl --remove-all /etc/gshadow')
+            print '/etc/gshadow extended ACL removed.\n'
+        else
+            print '/etc/gshadow does not have an extended ACL.\n'
+
+    if os.path.exists("/etc/security/access.conf"):
+        ACLOUT="+"
+        ACLOUT=os.system('getfacl --skip-base /etc/security/access.conf 2>/dev/null')
+        if ACLOUT != ""
+            os.system('setfacl --remove-all /etc/security/access.conf')
+            print '/etc/security/access.conf extended ACL removed.\n'
+        else
+            print '/etc/security/access.conf does not have an extended ACL.\n'
+
+    if os.path.exists("/etc/sysctl.conf'):
+        ACLOUT="+"
+        ACLOUT=os.system('getfacl --skip-base /etc/sysctl.conf 2>/dev/null')
+        if ACLOUT != ""
+            os.system('setfacl --remove-all /etc/sysctl.conf')
+            print '/etc/sysctl.conf extended ACL removed.\n'
+        else
+            print '/etc/sysctl.conf does not have an extended ACL.\n'
+
+    if os.path.exists("/etc/ntp.conf'):
+        ACLOUT="+"
+        ACLOUT=os.system('getfacl --skip-base /etc/ntp.conf 2>/dev/null')
+        if ACLOUT != ""
+            os.system('setfacl --remove-all /etc/ntp.conf')
+            print '/etc/ntp.conf extended ACL removed.\n'
+        else
+            print '/etc/ntp.conf does not have an extended ACL.\n'
+
+    if os.path.exists("/root'):
+        ACLOUT="+"
+        ACLOUT=os.system('getfacl --skip-base /root 2>/dev/null')
+        if ACLOUT != ""
+            os.system('setfacl --remove-all /root')
+            print '/root extended ACL removed.\n'
+        else
+            print '/root does not have an extended ACL.\n'
+
+    if os.path.exists("/usr/sbin'):
+        os.system('setfacl --remove-all /usr/sbin/*')
+
+
+    if os.path.exists("/etc"):
+        basepath='/etc'
+        for fname in os.listdir(basepath):
+            path = os.path.join(basepath, fname)
+            if os.path.isdir(path):continue
+            else
+                var1='getfacl --skip-base' + path + '2>/dev/null' 
+                ACLOUT=os.system(var)
+                if ACLOUT != ""
+                    var1='setfacl --remove-all' + path
+                    print '/etc/gshadow extended ACL removed.\n'
+                else
+                    print '/etc/gshadow does not have an extended ACL.\n'
