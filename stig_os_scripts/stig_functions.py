@@ -42,7 +42,8 @@ if (os_text_version != "12.03") and (os_text_version != "12.04") and (os_text_ve
 # Do a package update to get the latest package indexes.  Some packages will fail if this is not done.
 #
 
-os.system('apt-get update')
+def system_package_update():
+    os.system('apt-get update')
 
 # Install python-pexpect since it is required by the script.
 

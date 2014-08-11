@@ -46,6 +46,9 @@ while admin1 != admin2:
 
 # Function List
 
+# Update system packages
+# stig_functions.system_package_update() - disabled because GeoShape system packages should not be updated manually or will break reprovision.
+
 # Install and configure packages
 stig_functions.audit()
 stig_functions.ntp_server()
