@@ -1,44 +1,46 @@
-stig based system security lockdown
+stig based Ubuntu Server security lockdown
 ====
 
 JAM
 LMN Solutions
 Version 0.9
-May 2014
+August 2014
 
-The scripts in this project are designed to secure Ubuntu 12.04.  The scripts are based 
-on the DISA unclassified STIG documentation for securing Redhat, as well as general DISA guidelines 
-for applications and operating systems.  They automate securing a system OS or database based on a 
-review of the STIG documentation and guidelines.
+The scripts are based on the DISA unclassified STIG documentation for securing Redhat, as well as general DISA guidelines 
+for unix, applications and operating systems.  They automate securing an Ubuntu 12.3 and 12.4 OS based on a 
+review of several STIG documents and guidelines.
 
-The OS lockdown is designed and tested for Ubuntu 12.03 and 12.04 LTS.
-
-The scripts are designed for the ROGUE JCTD project and decisions are based on that project.
-The scripts are compatible or configurable with other Ubuntu 12.03 or 12.04.
-
-A Postgresql database script may eventually be written.  PostGIS is the database of choice for the project
-and is part of the Geoserver distribution primarily for admin purposes but ROGUE is using this distribution
-database for an open distribution, single server distribution architecture.
+The intent of the script is to provide an open source STIG based lockdown of a systemi and is provided as is. 
+It is a reference implementation for locking down an Ubuntu OS and could form the basis for a more formal 
+implementation.  
 
 There are implementation specific considerations that are identified in the lockdown report. Adding the 
 report with this distribution has not been decided yet.
 
-The scripts only correct findings not found to be compliant with the DISA STIG or guides. If the OS out of the box
-meets the lockdown then no fix was scripted. A manual review was conducted of all CATI and CATII.  CATIII items were not reviewed. 
+The scripts only correct findings not found to be compliant with the DISA STIG and guides. It was also designed for 
+the ROGUE project so checks are based on the project requirements and not the list checks.  If the OS out of the box
+meets the lockdown then no fix was scripted unless the project added functionality that required a check. 
+A manual review was conducted of CATI and CATII.  CATIII items were not reviewed. 
 
 In some cases findings were considered "site specific issues" and are not addressed in the scripts, nor are findings deemed out of scope. 
-An example of this is Postgres not using a FIPS compliant algorithm to secure passwords. The project these scripts are designed for
-will not address those issues.
+An example of this is logging on remote servers or saving logs for five years. These scripts will not address those issues.
+
+The scripts will run successfully immediately after the OS is installed if system configuration is required, such as setting up the system
+domain so the mail server can be configured properly.  Otherwise some reconfiguration may be required later.
+
+Some notes on the installation of these lockdowns are provided in the GeoShape installation guide.
 
 To Do:
 
-A complete "To Do" list will be compiled later but for now this is what I am working on:
+- Output results to a report
+- Fix remainder of functions not checking for previous lockdown
+- Provide consistant result statements for the functions
 
 Completed: 
 
-- Break all the rule lockdowns into separate functions and add a function call list to the top.  This way the executed functions can be adjusted to testing / trouble shooting.
-- Better function checking instead of abrupt breaks.
-- Checks to see if a lockdown has been conducted before conducting the lockdown.
+- Tripwire installs with a configured template instead of the default.  The previous template had syntax and duplicate policies. The new template fixes those issues.
+- Added new checks to several of the functions to check if these policies are already in place.  Previously they just ran the check without any checking. 
+- Break all the rule lockdowns into separate functions and add a function call list to the top.  Functions can be adjusted for testing / trouble shooting / desired lockdowns.
 - Can reuse the script as a lockdown script.  Before was designed for a fresh install only. It is now suitable for later use.
 
 Still to do (some of them anyway):
@@ -48,3 +50,6 @@ Still to do (some of them anyway):
   out of the postgres application directory.
 - SV-760r6_rule. Remove postgres direct login. A decision still has to be made about the vagrant account.
 
+Known bugs:
+
+- /var/spool/cron/atjobs check is not correctly reading or setting the directory permission settings
