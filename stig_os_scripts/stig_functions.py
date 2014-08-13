@@ -4,11 +4,12 @@
 # JAM
 # LMN Solutions
 # Version 0.99
-# 29 April 2014
+# 12 August 2014
 #########################################################################################################################
 
 # Load the imports required by the script.
 import os
+import grp
 import os.path
 import subprocess
 import stat
@@ -42,8 +43,7 @@ if (os_text_version != "12.03") and (os_text_version != "12.04") and (os_text_ve
 # Do a package update to get the latest package indexes.  Some packages will fail if this is not done.
 #
 
-def system_package_update():
-    os.system('apt-get update')
+os.system('apt-get update')
 
 # Install python-pexpect since it is required by the script.
 
@@ -128,7 +128,7 @@ def tripwire(admin1):
     trip_check=os.system('dpkg --get-selections | grep tripwire')
     if trip_check != 0:
         print 'Installing tripwire.\n'
-        os.system('apt-get install -y tripwire && tripwire --init')
+        os.system('apt-get install -y tripwire')
         # Find all the SUID and GUID and put in file to parse through.  This is done as a command to account for system install variations.
         print 'Configuring tripwire.\n'
         os.system('find / -type f -perm -2000 -print > /var/log/sgid-file-list;chmod 0600 /var/log/sgid-file-list;chown root:root /var/log/sgid-file-list;')
@@ -185,7 +185,8 @@ def tripwire(admin1):
                     twpol2_file.write(line)
         twpol2_file.close()
         # Update the Tripwire policy
-        os.system('twadmin --create-polfile /etc/tripwire/twpol.txt')
+        os.system('twadmin --create-polfile ./doc/twpol.txt')
+        os.system('tripwire --init --polfile /etc/tripwire/tw.pol')
     else:
         print 'tripwire already installed.\n'
 
@@ -772,8 +773,8 @@ def SV4336r5():
     if os.path.exists("/etc/sysctl.conf"):
         scmod = oct(stat.S_IMODE(os.stat('/etc/sysctl.conf').st_mode))
         if scmod != "0600":
-            print '/etc/security/access.conf file mod changed to 0600.\n'
-            os.system('chmod u+rw,u-xs,g-rwxs,o-rwxt /etc/sysctl.conf')
+            os.system('chmod 0600 /etc/sysctl.conf')
+            print '/etc/sysctl.conf file mod changed to 0600.\n'
         else:
             print '/etc/sysctl.conf file mod is already 0600. File permissions not changed.\n'
     else:
@@ -998,6 +999,7 @@ def SV27146r1():
     #
     
     if os.path.exists("/etc/securetty"):
+        count=0
         with open("/etc/securetty", "r+") as securetty_file:
             lines = securetty_file.readlines()
             securetty_file.seek(0)
@@ -1006,10 +1008,14 @@ def SV27146r1():
                 if "#" not in line and line.strip() != "":
                     comment_line="#" + line
                     securetty_file.write(comment_line)
+                    count = count + 1
                 else:
                     securetty_file.write(line)
         securetty_file.close()
-        print '/etc/securetty root login modified.\n'
+        if count > 0:
+            print '/etc/securetty root login modified.\n'
+        else:
+            print '/etc/securetty already configured.\n'
 
 def SV1047r7():
     #
@@ -1072,20 +1078,40 @@ def SV12482r4():
     #
     
     if os.path.exists("/etc/profile.d/rvm.sh"):
-        os.system('chmod 0644 /etc/profile.d/rvm.sh')
-        print '/etc/profile.d/rvm.sh mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/profile.d/rvm.sh').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /etc/profile.d/rvm.sh')
+            print '/etc/profile.d/rvm.sh mode changed.\n'
+        else:
+            print '/etc/profile.d/rvm.sh mode is already 0644.\n'
     if os.path.exists("/etc/security"):
-        os.system('chmod 0644 /etc/security')
-        print '/etc/security mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/security').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /etc/security')
+            print '/etc/security mode changed.\n'
+        else:
+            print '/etc/security mode is already 0644.\n'
     if os.path.exists("/etc/security/limits.d"):
-        os.system('chmod 0644 /etc/security/limits.d')
-        print '/etc/security/limits.d mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/security/limits.d').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /etc/security/limits.d')
+            print '/etc/security/limits.d mode changed.\n'
+        else:
+            print '/etc/security/limits.d mode is already 0644.\n'
     if os.path.exists("/etc/security/namespace.d"):
-        os.system('chmod 0644 /etc/security/namespace.d')
-        print '/etc/security/namespace.d mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/security/namespace.d').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /etc/security/namespace.d')
+            print '/etc/security/namespace.d mode changed.\n'
+        else:
+            print '/etc/security/namespace.d mode is already 0644.\n'
     if os.path.exists("/etc/security/namespace.init"):
-        os.system('chmod 0644 /etc/security/namespace.init')
-        print '/etc/security/namespace.init mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/security/namespace.init').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /etc/security/namespace.init')
+            print '/etc/security/namespace.init mode changed.\n'
+        else:
+            print '/etc/security/namespace.init mode is already 0644.\n'
 
 def SV808r6():
     #
@@ -1127,34 +1153,54 @@ def SV924r6():
     #
     
     if os.path.exists("/dev/ptmx"):
-        os.system('chmod 0644 /dev/ptmx')
-        print '/dev/ptmx mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/dev/ptmx').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /dev/ptmx')
+            print '/dev/ptmx mode changed.\n'
+        else:
+            print '/dev/ptmx mode unchanged.\n'
     else:
-        print '/dev/ptmx mode unchanged.\n'
+        print '/dev/ptmx does not exist.\n'
 
     if os.path.exists("/dev/urandom"):
-        os.system('chmod 0644 /dev/urandom')
-        print '/dev/urandom mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/dev/urandom').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /dev/urandom')
+            print '/dev/urandom mode changed.\n'
+        else:
+            print '/dev/urandom mode unchanged.\n'
     else:
-        print '/dev/urandom mode unchanged.\n'
+        print '/dev/urandom does not exist.\n'
 
     if os.path.exists("/dev/tty"):
-        os.system('chmod 0644 /dev/tty')
-        print '/dev/tty mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/dev/tty').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /dev/tty')
+            print '/dev/tty mode changed.\n'
+        else:
+            print '/dev/tty mode unchanged.\n'
     else:
-        print '/dev/tty mode unchanged.\n'
+        print '/dev/tty does not exist.\n'
 
     if os.path.exists("/dev/random"):
-        os.system('chmod 0644 /dev/random')
-        print '/dev/random mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/dev/random').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /dev/random')
+            print '/dev/random mode changed.\n'
+        else:
+            print '/dev/random mode unchanged.\n'
     else:
-        print '/dev/random mode unchanged.\n'
+        print '/dev/random does not exist.\n'
 
     if os.path.exists("/dev/full"):
-        os.system('chmod 0644 /dev/full')
-        print '/dev/full mode changed.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/dev/full').st_mode))
+        if modcheck != "0644":
+            os.system('chmod 0644 /dev/full')
+            print '/dev/full mode changed.\n'
+        else:
+            print '/dev/full mode unchanged.\n'
     else:
-        print '/dev/full mode unchanged.\n'
+        print '/dev/full does not exist.\n'
 
     # Add weekly cron jobs to check if there are unauthorized setuid files or unauthorized modification to
     # authorized setuid files
@@ -1191,15 +1237,24 @@ def SV27320r1():
     
     if not os.path.exists("/etc/cron.allow"):
         os.system('touch /etc/cron.allow')
+        os.system('echo "root" > /etc/cron.allow')
+        os.system('chmod 0600 /etc/cron.allow')
+        os.system('chown root:root /etc/cron.allow')
+        print '/etc/cron.allow created, root user added, permissions set to 0600 and ownership set to root.\n'
+    elif "root" not in open('/etc/cron.allow').read():
+        os.system('echo "root" > /etc/cron.allow')
+        os.system('chmod 0600 /etc/cron.allow')
+        os.system('chown root:root /etc/cron.allow')
+        print '/etc/cron.allow root user added to file, permissions set to 0600 and ownership set to root.\n'
     else:
-        print '/etc/cron.allow found. Not modified.\n'
-    if "root" not in open('/etc/cron.allow').read():
-        print '/etc/cron.allow set to root.\n'
-    else:
-        print '/etc/cron.allow is already set to root. Not changed\n'
-    os.system('chmod 0600 /etc/cron.allow')
-    os.system('chown root:root /etc/cron.allow')
-    print '/etc/cron.allow permissions set.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/cron.allow').st_mode))
+        if modcheck != "0600":
+            print 'cron.allow modcheck is %s\n' % modcheck
+            os.system('chmod 0600 /etc/cron.allow')
+            os.system('chown root:root /etc/cron.allow')
+            print '/etc/cron.allow file already exists.  Permissions set to 0600 and ownership set to root.\n'
+        else:
+            print '/etc/cron.allow found. Everything set correctly.  File not Changed.\n'
 
 def SV27352r1():
     #
@@ -1210,10 +1265,17 @@ def SV27352r1():
     
     if not os.path.exists("/var/log/cron.log"):
         os.system('touch /var/log/cron.log')
+        os.system('chmod 0600 /etc/cron.log')
+        os.system('chown root:root /etc/cron.log')
         print 'Cron logfile created.\n'
+    elif os.path.exists("/var/log/cron.log"):
+        modcheck = oct(stat.S_IMODE(os.stat('/var/log/cron.log').st_mode))
+        if modcheck != "0600":
+            os.system('chmod 0600 /var/log/cron.log')
+            os.system('chown root:root /var/log/cron.log')
+            print '/var/log/cron.log files already exist.  Permissions set to 0600 and ownership set to root.\n'
     else:
-        os.system('find /var/log/cron.log -perm /7177 -exec chmod u-xs,g-rwxs,o-rwxt {} \;')
-        print 'Cron logfile already exists. Permissions set.\n'
+        print '/var/log/cron.log file exists and permissions set correctly.\n'
 
     if "cron.*                          /var/log/cron.log" not in open('/etc/rsyslog.d/50-default.conf').read():
         with open("/etc/rsyslog.d/50-default.conf", "r+") as cron_log_file:
@@ -1225,8 +1287,8 @@ def SV27352r1():
                     cron_log_file.write('cron.*                          /var/log/cron.log\n')
                 else:
                     cron_log_file.write(line)
-        print 'cron logging implemented.\n'
         cron_log_file.close()
+        print 'cron logging implemented.\n'
     else:
         print 'Cron logging already implemented.\n'
 
@@ -1240,18 +1302,22 @@ def SV27379r1():
     if not os.path.exists("/etc/at.allow"):
         os.system('touch /etc/at.allow')
         os.system('echo "root" > /etc/at.allow')
-        os.system('chmod 0600 /etc/cron.allow')
+        os.system('chmod 0600 /etc/at.allow')
         os.system('chown root:root /etc/at.allow')
         print '/etc/at.allow created, root user added, permissions set to 0600 and ownership set to root.\n'
     elif "root" not in open('/etc/at.allow').read():
         os.system('echo "root" > /etc/at.allow')
-        os.system('chmod 0600 /etc/cron.allow')
+        os.system('chmod 0600 /etc/at.allow')
         os.system('chown root:root /etc/at.allow')
         print '/etc/at.allow root user added to file, permissions set to 0600 and ownership set to root.\n'
     else:
-        os.system('chmod 0600 /etc/cron.allow')
-        os.system('chown root:root /etc/at.allow')
-        print '/etc/at.allow files already exist.  Permissions set to 0600 and ownership set to root.\n'
+        modcheck = oct(stat.S_IMODE(os.stat('/etc/at.allow').st_mode))
+        if modcheck != "0600":
+            os.system('chmod 0600 /etc/at.allow')
+            os.system('chown root:root /etc/at.allow')
+            print '/etc/at.allow files already exist.  Permissions set to 0600 and ownership set to root.\n'
+        else:
+            print '/etc/at.allow found. Everything set correctly.  File not Changed.\n'
 
 def SV4364r7():
     #
@@ -1260,9 +1326,14 @@ def SV4364r7():
     #
     
     if os.path.exists("/var/spool/cron/atjobs"):
-        os.system('chmod 0700 /var/spool/cron/atjobs')
-        os.system('chown root:root /var/spool/cron/atjobs')
-        print '/var/spool/cron/atjobs permissions set to 0700 and ownership set to root.\n'
+        atmodcheck = oct(stat.S_IMODE(os.stat('/var/spool/cron/atjobs').st_mode))
+        if atmodcheck != "0700":
+            print 'atjobs modchech is %s \n' % atmodcheck
+            os.system('chmod 0700 /var/spool/cron/atjobs')
+            os.system('chown root:root /var/spool/cron/atjobs')
+            print '/var/spool/cron/atjobs permissions set to 0700 and ownership set to root.\n'
+        else:
+            print '/var/spool/cron/atjobs found. Everything set correctly.  File not Changed.\n'
     else:
         print '/var/spool/cron/atjobs doesn\'t exist.\n'
 
@@ -1271,11 +1342,17 @@ def SV26572r1():
     # SV-26572r1_rule - The at.deny file must be group-owned by root, bin, sys, or cron.
     #
     
-    if os.path.exists("/var/spool/cron/atdeny"):
-        os.system('chown root:root /etc/at.deny')
-        print '/etc/at.deny ownership changed to root.\n'
+    if not os.path.exists("/etc/at.deny"):
+        print '/etc/at.deny doesn\'t exist. CATII failure. Please create and rerun script.\n'
     else:
-        print '/var/spool/cron/atdeny doesn\'t exist.\n'
+        stat_info = os.stat('/etc/at.deny')
+        uid = stat_info.st_uid
+        gid = stat_info.st_gid
+        print uid, gid
+        group = grp.getgrgid(gid)[0]
+        print 'group is %s\n' % group 
+#        os.system('chown root:root /etc/at.deny')
+#        print '/etc/at.deny group ownership changed to root.\n'
 
 def SV29290r1():
     #
@@ -1289,7 +1366,7 @@ def SV29290r1():
     #
     # Changes the settings in the sysctl.conf
     
-    if not os.path.exists("/etc/sysctl.conf"):
+    if os.path.exists("/etc/sysctl.conf"):
         if "# Disable STIG IP source routing" not in open('/etc/sysctl.conf').read():
             with open("/etc/sysctl.conf", "a") as sysctl_file:
                 sysctl_file.write("\n")
@@ -1318,9 +1395,9 @@ def SV29290r1():
         else:
             print 'STIG IP source routing directed in effect.\n'
     else:
-        print '/etc/sysctl.conf doesn\'t exist.\n'
+        print '/etc/sysctl.conf file doesn\'t exist.\n'
     
-    if not os.path.exists("/etc/modprobe.d/blacklist.conf"):
+    if os.path.exists("/etc/modprobe.d/blacklist.conf"):
         if "iblacklist ipv6" not in open('/etc/modprobe.d/blacklist.conf').read():
             os.system('echo "# STIG SV-26919r1_rule" >> /etc/modprobe.d/blacklist.conf')
             os.system('echo "blacklist ipv6" >> /etc/modprobe.d/blacklist.conf')
@@ -1337,7 +1414,7 @@ def SV12507r6():
     # This will zero out the help file thus providing no information.
     #
     
-    if not os.path.exists("/etc/mail/helpfile"):
+    if os.path.exists("/etc/mail/helpfile"):
         with open("/etc/mail/helpfile", "r+") as mailhelp_file:
             lines = mailhelp_file.readlines()
             mailhelp_file.seek(0)
@@ -1521,4 +1598,3 @@ def grubmod():
             print '/boot/grub/grub.cfg mode is already 0400. File permissions not changed.\n'
     else:
         print '/boot/grub/grub.cfg file not found.\n' 
-

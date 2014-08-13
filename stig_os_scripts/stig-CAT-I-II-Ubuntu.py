@@ -46,9 +46,6 @@ while admin1 != admin2:
 
 # Function List
 
-# Update system packages
-# stig_functions.system_package_update() - disabled because GeoShape system packages should not be updated manually or will break reprovision.
-
 # Install and configure packages
 stig_functions.audit()
 stig_functions.ntp_server()
@@ -114,3 +111,5 @@ stig_functions.SV28408r1()
 stig_functions.SV26192r()
 stig_functions.iptablerules()
 stig_functions.grubmod()
+
+print 'End of STIG OS lockdown script.\n'
